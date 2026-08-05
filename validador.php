@@ -11,7 +11,7 @@ if (!$publicKeyStr) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validador de Medicamentos - TCC</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/openpgp/5.10.1/openpgp.min.js"></script>
+    <script src="https://unpkg.com/openpgp/dist/openpgp.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body { background-color: #f0f2f5; }
@@ -41,7 +41,16 @@ if (!$publicKeyStr) {
                 <div class="scanner-box shadow-sm mb-4">
                     <div id="reader"></div>
                 </div>
-
+<!--
+                <div class="mb-3">
+                    <label class="form-label">Validar por imagem</label>
+                    <div class="input-group">
+                        <input type="file" id="qrFileInput" accept="image/*" class="form-control" />
+                        <button type="button" id="btnValidateFile" class="btn btn-secondary">Validar imagem</button>
+                    </div>
+                    <div class="form-text">Envie um arquivo PNG/JPG do QR Code quando não puder usar a câmera.</div>
+                </div>
+-->
                 <div id="loading" class="text-center" style="display:none;">
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-2 text-muted fw-bold">Analisando Criptografia...</p>
@@ -55,74 +64,81 @@ if (!$publicKeyStr) {
             </div>
         </div>
     </div>
+    <div id="qr-file-reader" style="display:none;"></div>
 
     <script>
         const PUBLIC_KEY_ARMORED = `<?php echo $publicKeyStr; ?>`;
         let html5QrcodeScanner;
+        let html5QrcodeFileScanner;
         let isProcessing = false;
+        let scanningActive = false;
+
+        async function handleDecodedText(decodedText) {
+            const data = JSON.parse(decodedText);
+            if (!data.id || !data.sig) {
+                throw new Error("Formato do QR Code inválido ou não pertencente ao sistema.");
+            }
+
+            const publicKey = await openpgp.readKey({ armoredKey: PUBLIC_KEY_ARMORED });
+            const message = await openpgp.createMessage({ text: data.id });
+            const signature = await openpgp.readSignature({ armoredSignature: data.sig });
+
+            const verificationResult = await openpgp.verify({
+                message: message,
+                signature: signature,
+                verificationKeys: publicKey
+            });
+
+            const { verified } = verificationResult.signatures[0];
+            try {
+                await verified;
+            } catch (e) {
+                throw new Error("Assinatura PGP Inválida! O medicamento não foi gerado pelo laboratório legítimo.");
+            }
+
+            const response = await fetch('api/validar_unicidade.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: data.id })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showResult('success', '✅ Medicamento Autêntico', result.message);
+            } else {
+                showResult('danger', '❌ ALERTA DE CLONAGEM', result.message);
+            }
+        }
 
         async function onScanSuccess(decodedText, decodedResult) {
             if (isProcessing) return;
             isProcessing = true;
-            
-            // Stop scanning visually
-            html5QrcodeScanner.pause(true);
+
+            if (scanningActive && html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.pause(true);
+                } catch (e) {
+                    console.warn('Não foi possível pausar o scanner:', e);
+                }
+                scanningActive = false;
+            }
+
             document.getElementById('loading').style.display = 'block';
             document.getElementById('result-container').style.display = 'none';
 
             try {
-                // Parse QR Code JSON
-                const data = JSON.parse(decodedText);
-                
-                if (!data.id || !data.sig) {
-                    throw new Error("Formato do QR Code inválido ou não pertencente ao sistema.");
-                }
-
-                // 1. Verificação Criptográfica (Descentralizada - no Front-End)
-                const publicKey = await openpgp.readKey({ armoredKey: PUBLIC_KEY_ARMORED });
-                const message = await openpgp.createMessage({ text: data.id });
-                const signature = await openpgp.readSignature({ armoredSignature: data.sig });
-
-                const verificationResult = await openpgp.verify({
-                    message: message,
-                    signature: signature,
-                    verificationKeys: publicKey
-                });
-
-                const { verified, keyID } = verificationResult.signatures[0];
-                
-                try {
-                    await verified; // throws on invalid signature
-                } catch (e) {
-                    throw new Error("Assinatura PGP Inválida! O medicamento não foi gerado pelo laboratório legítimo.");
-                }
-
-                // 2. Prova de Unicidade (Requisição ao Back-End)
-                const response = await fetch('api/validar_unicidade.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: data.id })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showResult('success', '✅ Medicamento Autêntico', result.message);
-                } else {
-                    // Clonado ou status = 1
-                    showResult('danger', '❌ ALERTA DE CLONAGEM', result.message);
-                }
-
+                await handleDecodedText(decodedText);
             } catch (err) {
                 console.error(err);
                 showResult('danger', '❌ Falsificação Detectada', err.message || "Não foi possível validar o código.");
             } finally {
                 document.getElementById('loading').style.display = 'none';
+                isProcessing = false;
             }
         }
 
         function onScanFailure(error) {
-            // handle scan failure, usually better to ignore and keep scanning
+            // keep scanning silently
         }
 
         function showResult(type, title, message) {
@@ -133,23 +149,66 @@ if (!$publicKeyStr) {
             container.style.display = 'block';
         }
 
-        function startScanner() {
+        async function startScanner() {
             isProcessing = false;
             document.getElementById('result-container').style.display = 'none';
             document.getElementById('loading').style.display = 'none';
-            
+
             if (html5QrcodeScanner) {
-                html5QrcodeScanner.resume();
+                if (!scanningActive) {
+                    html5QrcodeScanner.resume();
+                    scanningActive = true;
+                }
             } else {
                 html5QrcodeScanner = new Html5QrcodeScanner(
                     "reader",
-                    { fps: 10, qrbox: {width: 250, height: 250} },
-                    /* verbose= */ false);
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    false
+                );
                 html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+                scanningActive = true;
             }
         }
 
-        // Start scanner on load
+        async function validateFileImage() {
+            const fileInput = document.getElementById('qrFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showResult('danger', '❌ Arquivo não selecionado', 'Selecione uma imagem PNG ou JPG contendo o QR Code.');
+                return;
+            }
+
+            if (scanningActive && html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.pause(true);
+                } catch (e) {
+                    console.warn('Não foi possível pausar o scanner antes da leitura de arquivo:', e);
+                }
+                scanningActive = false;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result-container').style.display = 'none';
+
+            try {
+                if (!html5QrcodeFileScanner) {
+                    html5QrcodeFileScanner = new Html5Qrcode('qr-file-reader');
+                }
+                const decodedText = await html5QrcodeFileScanner.scanFileV2(file, true);
+                await handleDecodedText(decodedText);
+            } catch (err) {
+                console.error(err);
+                showResult('danger', '❌ Falha ao ler a imagem', err.message || 'Não foi possível decodificar o QR Code da imagem.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                isProcessing = false;
+                if (html5QrcodeFileScanner) {
+                    html5QrcodeFileScanner.clear().catch(() => {});
+                    html5QrcodeFileScanner = null;
+                }
+            }
+        }
         window.addEventListener('load', startScanner);
     </script>
 </body>
