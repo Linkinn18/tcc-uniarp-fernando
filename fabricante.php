@@ -65,7 +65,6 @@ if (!$privateKeyStr) {
         </div>
     </div>
 
-    <!-- Injecting private key securely (in a real scenario, this would be locked in a HSM or strictly backend) -->
     <script>
         const PRIVATE_KEY_ARMORED = `<?php echo $privateKeyStr; ?>`;
 
