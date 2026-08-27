@@ -93,7 +93,7 @@ if (!$publicKeyStr) {
             try {
                 await verified;
             } catch (e) {
-                throw new Error("Assinatura PGP Inválida! O medicamento não foi gerado pelo laboratório legítimo.");
+                throw new Error("Assinatura PGP Inválida! O medicamento não foi gerado por esse sistema.");
             }
 
             const response = await fetch('api/validar_unicidade.php', {
@@ -104,9 +104,9 @@ if (!$publicKeyStr) {
 
             const result = await response.json();
             if (result.success) {
-                showResult('success', '✅ Medicamento Autêntico', result.message);
+                showResult('success', 'Medicamento Autêntico', result.message);
             } else {
-                showResult('danger', '❌ ALERTA DE CLONAGEM', result.message);
+                showResult('danger', 'ALERTA DE CLONAGEM', result.message);
             }
         }
 
@@ -175,7 +175,7 @@ if (!$publicKeyStr) {
             const file = fileInput.files[0];
 
             if (!file) {
-                showResult('danger', '❌ Arquivo não selecionado', 'Selecione uma imagem PNG ou JPG contendo o QR Code.');
+                showResult('danger', 'Arquivo não selecionado', 'Selecione uma imagem PNG ou JPG contendo o QR Code.');
                 return;
             }
 
@@ -199,7 +199,7 @@ if (!$publicKeyStr) {
                 await handleDecodedText(decodedText);
             } catch (err) {
                 console.error(err);
-                showResult('danger', '❌ Falha ao ler a imagem', err.message || 'Não foi possível decodificar o QR Code da imagem.');
+                showResult('danger', 'Falha ao ler a imagem', err.message || 'Não foi possível decodificar o QR Code da imagem.');
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 isProcessing = false;

@@ -11,15 +11,14 @@ $options = [
     PDO::ATTR_EMULATE_PREPARES   => false,
 ];
 
+/* Ao testar em outro computador, me deparei com a falta do banco, logo, vou garantir que não tenha esse problema.
+Já que decidi não utilizar SQLite para facilitar a movimentação */
 try {
-    // Conecta ao servidor MySQL sem selecionar o banco de dados inicialmente.
     $pdo = new PDO("mysql:host=$host;charset=$charset", $user, $pass, $options);
 
-    // Cria o banco de dados se ainda não existir.
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db` CHARACTER SET $charset COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `$db`");
 
-    // Cria as tabelas necessárias na primeira execução.
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS medicamentos (
             id VARCHAR(36) PRIMARY KEY,
