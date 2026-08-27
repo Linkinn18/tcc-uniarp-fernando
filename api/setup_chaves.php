@@ -12,7 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pubPath = '../keys/public.key';
     $privPath = '../keys/private.key';
 
-    // We allow overwriting for the sake of the TCC demonstration
     $pubResult = file_put_contents($pubPath, $data['publicKey']);
     $privResult = file_put_contents($privPath, $data['privateKey']);
 
