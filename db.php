@@ -1,9 +1,8 @@
 <?php
-$host = 'localhost';
-$db   = 'tcc_medicamentos';
-$user = 'root';
-$pass = '';
-$charset = 'utf8mb4';
+/*
+ * Banco: nesta branch de teste usamos SQLite local em `data/tcc.sqlite`.
+ * O arquivo será criado automaticamente ao incluir este arquivo.
+ */
 
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -11,26 +10,53 @@ $options = [
     PDO::ATTR_EMULATE_PREPARES   => false,
 ];
 
-/* Ao testar em outro computador, me deparei com a falta do banco, logo, vou garantir que não tenha esse problema.
-Já que decidi não utilizar SQLite para facilitar a movimentação */
-try {
-    $pdo = new PDO("mysql:host=$host;charset=$charset", $user, $pass, $options);
+// Caminho do arquivo sqlite (relativo ao diretório do projeto)
+// Preferência por alguns caminhos possíveis (tenta escrever no primeiro disponível)
+$candidatePaths = [
+    __DIR__ . '/data/tcc.sqlite',
+    __DIR__ . '/sqlite/tcc.sqlite',
+    __DIR__ . '/tcc.sqlite',
+];
 
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db` CHARACTER SET $charset COLLATE utf8mb4_unicode_ci");
-    $pdo->exec("USE `$db`");
-
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS medicamentos (
-            id VARCHAR(36) PRIMARY KEY,
-            nome VARCHAR(255) NOT NULL,
-            lote VARCHAR(50) NOT NULL,
-            data_fabricacao DATETIME NOT NULL,
-            assinatura TEXT NOT NULL,
-            status TINYINT(1) DEFAULT 0 COMMENT '0 = Nao Validado, 1 = Validado',
-            data_validacao DATETIME NULL
-        )"
-    );
-} catch (\PDOException $e) {
-    die(json_encode(['error' => 'Falha na conexão com o banco de dados. Verifique se o MySQL (XAMPP) está rodando e se o usuário tem permissão para criar o banco. Erro: ' . $e->getMessage()]));
+$sqliteFile = null;
+foreach ($candidatePaths as $p) {
+    $dir = dirname($p);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    if (is_dir($dir) && is_writable($dir)) {
+        $sqliteFile = $p;
+        break;
+    }
 }
+
+if ($sqliteFile === null) {
+    // fallback para /tmp se nenhum diretório do projeto for gravável
+    $sqliteFile = sys_get_temp_dir() . '/tcc.sqlite';
+}
+
+try {
+    // Conectar via SQLite (arquivo local)
+    $pdo = new PDO('sqlite:' . $sqliteFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+    // Ajustes SQLite
+    $pdo->exec('PRAGMA foreign_keys = ON;');
+
+    // Criar tabela compatível com SQLite
+    $pdo->exec("CREATE TABLE IF NOT EXISTS medicamentos (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        lote TEXT NOT NULL,
+        data_fabricacao TEXT NOT NULL,
+        assinatura TEXT NOT NULL,
+        status INTEGER DEFAULT 0,
+        data_validacao TEXT
+    )");
+
+} catch (\PDOException $e) {
+    die(json_encode(['error' => 'Falha na conexão com o banco de dados SQLite. Erro: ' . $e->getMessage()]));
+}
+
 ?>

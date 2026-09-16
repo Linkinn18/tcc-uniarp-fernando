@@ -25,9 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($row['status'] == 1) {
             echo json_encode(['success' => false, 'message' => 'Falsificação/Clonagem Detectada: Este código já foi validado anteriormente!']);
         } else {
-            // Update to validated
-            $update = $pdo->prepare("UPDATE medicamentos SET status = 1, data_validacao = NOW() WHERE id = ?");
-            $update->execute([$id]);
+            // Update to validated - usar data do PHP para compatibilidade com SQLite
+            $now = date('Y-m-d H:i:s');
+            $update = $pdo->prepare("UPDATE medicamentos SET status = 1, data_validacao = ? WHERE id = ?");
+            $update->execute([$now, $id]);
             echo json_encode(['success' => true, 'message' => 'Medicamento Autêntico. Unicidade validada com sucesso!']);
         }
 
