@@ -58,5 +58,3 @@ try {
 } catch (\PDOException $e) {
     die(json_encode(['error' => 'Falha na conexão com o banco de dados SQLite. Erro: ' . $e->getMessage()]));
 }
-
-?>
