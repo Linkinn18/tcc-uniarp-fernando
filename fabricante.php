@@ -92,7 +92,7 @@ if (!$privateKeyStr) {
                 const privateKey = await openpgp.readPrivateKey({ armoredKey: PRIVATE_KEY_ARMORED });
 
                 const message = await openpgp.createMessage({ text: id });
-=
+
                 const signature = await openpgp.sign({
                     message: message,
                     signingKeys: privateKey,
