@@ -74,9 +74,19 @@ if (!$publicKeyStr) {
         let scanningActive = false;
 
         async function handleDecodedText(decodedText) {
-            const data = JSON.parse(decodedText);
+            console.log("Texto decodificado do QR:", decodedText);
+            
+            let data;
+            try {
+                data = JSON.parse(decodedText);
+            } catch (e) {
+                console.error("Erro ao fazer parse do JSON:", e, "Texto:", decodedText);
+                throw new Error("Erro ao interpretar o QR Code. Formato JSON inválido.");
+            }
+            
             if (!data.id || !data.sig) {
-                throw new Error("Formato do QR Code inválido ou não pertencente ao sistema.");
+                console.error("Dados do QR Code:", data);
+                throw new Error("Formato do QR Code inválido ou não pertencente ao sistema. Faltam campos 'id' ou 'sig'.");
             }
 
             const publicKey = await openpgp.readKey({ armoredKey: PUBLIC_KEY_ARMORED });
@@ -196,6 +206,7 @@ if (!$publicKeyStr) {
                     html5QrcodeFileScanner = new Html5Qrcode('qr-file-reader');
                 }
                 const decodedText = await html5QrcodeFileScanner.scanFileV2(file, true);
+                console.log("Texto decodificado da imagem:", decodedText);
                 await handleDecodedText(decodedText);
             } catch (err) {
                 console.error(err);
