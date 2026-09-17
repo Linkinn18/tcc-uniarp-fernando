@@ -132,4 +132,3 @@ try {
     $dbLabel = $driver === 'sqlite' ? 'SQLite' : 'MySQL';
     die(json_encode(['error' => 'Falha na conexão com o banco de dados ' . $dbLabel . '. Erro: ' . $e->getMessage()]));
 }
-?>
