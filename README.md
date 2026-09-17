@@ -11,6 +11,44 @@ Projeto em PHP para emissão e validação de medicamentos com assinatura digita
 - A decisão final acontece no servidor: [api/validar_unicidade.php](api/validar_unicidade.php) valida a assinatura e só então tenta marcar o medicamento como validado.
 - A validação de unicidade é atômica: apenas a primeira requisição com `status = 0` consegue atualizar o registro.
 
+## Pré-requisitos
+
+- **PHP 8.0+** com suporte a OpenSSL (para RSA) e SQLite
+- **Servidor Web** (Apache, Nginx, etc.) ou servidor built-in do PHP
+- **Git** (para clonar o repositório)
+- **SQLite3** (geralmente incluído no PHP)
+
+### Instalação rápida
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+sudo apt update
+sudo apt install php php-cli php-openssl php-sqlite3 php-session apache2
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+```
+
+#### Linux (Fedora/RedHat)
+
+```bash
+sudo dnf install php php-cli php-openssl php-pdo php-pdo_sqlite httpd
+sudo systemctl restart httpd
+```
+
+#### Windows
+
+1. Baixe [XAMPP](https://www.apachefriends.org/) ou [PHP for Windows](https://windows.php.net/download/)
+2. Instale em `C:\xampp` (ou outro caminho)
+3. Certifique-se de que PHP está no PATH do sistema
+
+#### macOS
+
+```bash
+brew install php@8.2 openssl
+# ou use MAMP/XAMPP
+```
+
 ## Segurança implementada
 
 - Chave privada fora do diretório público.
@@ -28,7 +66,7 @@ Projeto em PHP para emissão e validação de medicamentos com assinatura digita
 4. Gere as chaves com [bin/gerar_chaves.php](bin/gerar_chaves.php).
 5. Acesse [login.php](login.php).
 
-Exemplo de `.env`:
+### Exemplo de `.env` (Linux/macOS)
 
 ```env
 # Configuração de Banco de Dados (SQLite)
@@ -45,30 +83,80 @@ TCC_KEY_PASSPHRASE=troque-esta-passphrase
 TCC_STORAGE_PATH=/tmp/tcc-storage
 ```
 
+### Exemplo de `.env` (Windows)
+
+```env
+# Configuração de Banco de Dados (SQLite)
+TCC_DB_SQLITE_PATH=C:\xampp\storage\tcc\tcc.sqlite
+
+# Credenciais Administrativas
+TCC_ADMIN_USER=fabricante
+TCC_ADMIN_PASSWORD=troque-esta-senha
+
+# Segurança Criptográfica
+TCC_KEY_PASSPHRASE=troque-esta-passphrase
+
+# Armazenamento de Chaves RSA
+TCC_STORAGE_PATH=C:\xampp\storage\tcc
+```
+
+> **Nota**: Em Windows com XAMPP, use `C:\xampp\storage\tcc` ou outro caminho dentro de `C:\xampp`. Em produção, prefira caminhos fora do web root.
+
 ## Banco de dados
 
 O projeto utiliza **SQLite** exclusivamente para máxima portabilidade. O banco é criado automaticamente no caminho definido por `TCC_DB_SQLITE_PATH`. O usuário inicial do fabricante é provisionado automaticamente a partir do `.env`.
 
 ## Comandos úteis
 
+### Linux/macOS
+
 Gerar chaves:
 
 ```bash
-/opt/lampp/bin/php /opt/lampp/htdocs/tcc/bin/gerar_chaves.php
+php bin/gerar_chaves.php
 ```
 
-Regenerar chaves:
+Regenerar chaves (força):
 
 ```bash
-/opt/lampp/bin/php /opt/lampp/htdocs/tcc/bin/gerar_chaves.php --force
+php bin/gerar_chaves.php --force
 ```
 
-Demonstrar a correção da condição de corrida do P03:
+Demonstrar a correção da condição de corrida (P03):
 
 ```bash
-TCC_STORAGE_PATH=/tmp/tcc-p03-demo-storage /opt/lampp/bin/php /opt/lampp/htdocs/tcc/bin/gerar_chaves.php
-TCC_STORAGE_PATH=/tmp/tcc-p03-demo-storage /opt/lampp/bin/php /opt/lampp/htdocs/tcc/bin/demonstrar_p03.php
+TCC_STORAGE_PATH=/tmp/tcc-p03-demo php bin/demonstrar_p03.php
 ```
+
+### Windows (PowerShell ou CMD)
+
+Gerar chaves:
+
+```powershell
+php bin\gerar_chaves.php
+```
+
+Regenerar chaves (força):
+
+```powershell
+php bin\gerar_chaves.php --force
+```
+
+Demonstrar a correção da condição de corrida (P03):
+
+```powershell
+$env:TCC_STORAGE_PATH="C:\xampp\storage\tcc-p03-demo"; php bin\demonstrar_p03.php
+```
+
+### Usando Docker (cross-platform)
+
+Caso queira rodar em container sem instalar PHP localmente:
+
+```bash
+docker run --rm -v $(pwd):/app -w /app php:8-cli php bin/gerar_chaves.php
+```
+
+> **Nota**: A maioria dos comandos trabalham com caminhos relativos. Se necessário usar o PHP de um caminho específico (como `/opt/lampp/bin/php` ou `C:\xampp\php\php.exe`), substitua `php` pelo caminho completo.
 
 ## Arquivos principais
 
