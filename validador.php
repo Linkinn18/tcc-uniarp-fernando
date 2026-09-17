@@ -53,6 +53,15 @@ try {
                     <div id="reader"></div>
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label">Validar por imagem</label>
+                    <div class="input-group">
+                        <input type="file" id="qrFileInput" accept="image/*" class="form-control" />
+                        <button type="button" id="btnValidateFile" class="btn btn-secondary">Validar imagem</button>
+                    </div>
+                    <div class="form-text">Envie um arquivo PNG/JPG do QR Code quando não puder usar a câmera.</div>
+                </div>
+
                 <div id="loading" class="text-center" style="display:none;">
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-2 text-muted fw-bold">Validando assinatura digital...</p>
@@ -68,10 +77,13 @@ try {
         </div>
     </div>
 
+    <div id="qr-file-reader" style="display:none;"></div>
+
     <?php if ($keyError === ''): ?>
     <script>
         const PUBLIC_KEY_PEM = `<?php echo $publicKeyStr; ?>`;
         let html5QrcodeScanner;
+        let html5QrcodeFileScanner;
         let isProcessing = false;
         let scanningActive = false;
         let cachedPublicKey;
@@ -120,9 +132,19 @@ try {
         }
 
         async function handleDecodedText(decodedText) {
-            const data = JSON.parse(decodedText);
+            console.log('Texto decodificado do QR:', decodedText);
+
+            let data;
+            try {
+                data = JSON.parse(decodedText);
+            } catch (error) {
+                console.error('Erro ao fazer parse do JSON:', error, 'Texto:', decodedText);
+                throw new Error('Erro ao interpretar o QR Code. Formato JSON inválido.');
+            }
+
             if (!data.id || !data.sig) {
-                throw new Error("Formato do QR Code inválido ou não pertencente ao sistema.");
+                console.error('Dados do QR Code:', data);
+                throw new Error("Formato do QR Code inválido ou não pertencente ao sistema. Faltam campos 'id' ou 'sig'.");
             }
 
             const verificationKey = await getPublicKey();
@@ -210,6 +232,50 @@ try {
                 scanningActive = true;
             }
         }
+
+        async function validateFileImage() {
+            const fileInput = document.getElementById('qrFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showResult('danger', 'Arquivo não selecionado', 'Selecione uma imagem PNG ou JPG contendo o QR Code.');
+                return;
+            }
+
+            if (scanningActive && html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.pause(true);
+                } catch (error) {
+                    console.warn('Não foi possível pausar o scanner antes da leitura de arquivo:', error);
+                }
+                scanningActive = false;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result-container').style.display = 'none';
+
+            try {
+                if (!html5QrcodeFileScanner) {
+                    html5QrcodeFileScanner = new Html5Qrcode('qr-file-reader');
+                }
+
+                const decodedText = await html5QrcodeFileScanner.scanFileV2(file, true);
+                console.log('Texto decodificado da imagem:', decodedText);
+                await handleDecodedText(decodedText);
+            } catch (err) {
+                console.error(err);
+                showResult('danger', 'Falha ao ler a imagem', err.message || 'Não foi possível decodificar o QR Code da imagem.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                isProcessing = false;
+                if (html5QrcodeFileScanner) {
+                    html5QrcodeFileScanner.clear().catch(() => {});
+                    html5QrcodeFileScanner = null;
+                }
+            }
+        }
+
+        document.getElementById('btnValidateFile').addEventListener('click', validateFileImage);
 
         window.addEventListener('load', startScanner);
     </script>
