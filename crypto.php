@@ -105,6 +105,29 @@ function tcc_sign_identifier(string $identifier): string
     return base64_encode($signature);
 }
 
+function tcc_verify_identifier_signature(string $identifier, string $signatureBase64): bool
+{
+    try {
+        $publicKey = tcc_get_public_key();
+        $publicKeyResource = openssl_pkey_get_public($publicKey);
+        
+        if ($publicKeyResource === false) {
+            return false;
+        }
+
+        $signature = base64_decode($signatureBase64, true);
+        if ($signature === false) {
+            return false;
+        }
+
+        $result = openssl_verify($identifier, $signature, $publicKeyResource, OPENSSL_ALGO_SHA256);
+        
+        return $result === 1;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function tcc_generate_uuid_v4(): string
 {
     $bytes = random_bytes(16);

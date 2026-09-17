@@ -1,13 +1,22 @@
 <?php
 header('Content-Type: application/json');
+require_once '../auth.php';
 require_once '../db.php';
+
+// Autenticar usuário (P06: proteger busca atrás de login)
+if (!tcc_is_authenticated()) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Acesso negado. Faça login primeiro.']);
+    exit;
+}
 
 $nome = trim($_GET['nome'] ?? '');
 $lote = trim($_GET['lote'] ?? '');
 $id = trim($_GET['id'] ?? '');
 
 try {
-    $query = "SELECT id, nome, lote, data_fabricacao, assinatura, status, data_validacao FROM medicamentos WHERE 1=1";
+    // Não retornar assinatura em listagens (P06)
+    $query = "SELECT id, nome, lote, data_fabricacao, status, data_validacao FROM medicamentos WHERE 1=1";
     $params = [];
 
     if ($nome !== '') {
@@ -31,7 +40,6 @@ try {
 
     $rows = $stmt->fetchAll();
     foreach ($rows as $key => $row) {
-        $rows[$key]['hash'] = hash('sha256', $row['id']);
         $rows[$key]['status_text'] = $row['status'] == 1 ? 'Validado' : 'Não validado';
     }
 
@@ -39,3 +47,4 @@ try {
 } catch (\PDOException $e) {
     echo json_encode(['success' => false, 'message' => 'Erro no banco: ' . $e->getMessage()]);
 }
+?>

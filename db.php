@@ -32,6 +32,27 @@ function tcc_seed_default_user(PDO $pdo): void
     ]);
 }
 
+function tcc_audit_validation(PDO $pdo, ?string $medicamentoId, string $resultado): void
+{
+    try {
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 255);
+        
+        $stmt = $pdo->prepare(
+            'INSERT INTO validacoes (medicamento_id, resultado, data, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $medicamentoId,
+            $resultado,
+            date('Y-m-d H:i:s'),
+            $ipAddress,
+            $userAgent,
+        ]);
+    } catch (Throwable $e) {
+        // Log silenciosamente para não quebrar a validação
+    }
+}
+
 function tcc_resolve_sqlite_path(): string
 {
     $configuredPath = tcc_env('TCC_DB_SQLITE_PATH');
@@ -87,6 +108,17 @@ try {
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS validacoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            medicamento_id TEXT,
+            resultado TEXT NOT NULL,
+            data TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            user_agent TEXT
         )"
     );
 
