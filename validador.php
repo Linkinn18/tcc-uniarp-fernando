@@ -1,7 +1,15 @@
 <?php
-$publicKeyStr = @file_get_contents('keys/public.key');
-if (!$publicKeyStr) {
-    die("Chave pública não encontrada. Por favor, gere as chaves primeiro.");
+declare(strict_types=1);
+
+require_once __DIR__ . '/crypto.php';
+
+$publicKeyStr = '';
+$keyError = '';
+
+try {
+    $publicKeyStr = tcc_get_public_key();
+} catch (RuntimeException $exception) {
+    $keyError = $exception->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -11,7 +19,6 @@ if (!$publicKeyStr) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validador de Medicamentos - TCC</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/openpgp/dist/openpgp.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body { background-color: #f0f2f5; }
@@ -38,10 +45,14 @@ if (!$publicKeyStr) {
                     <p class="text-muted">Aponte a câmera para o QR Code da embalagem do medicamento.</p>
                 </div>
 
+                <?php if ($keyError !== ''): ?>
+                    <div class="alert alert-warning shadow-sm"><?= htmlspecialchars($keyError, ENT_QUOTES, 'UTF-8') ?> Execute <strong>php bin/gerar_chaves.php</strong> no servidor.</div>
+                <?php else: ?>
+
                 <div class="scanner-box shadow-sm mb-4">
                     <div id="reader"></div>
                 </div>
-<!--
+
                 <div class="mb-3">
                     <label class="form-label">Validar por imagem</label>
                     <div class="input-group">
@@ -50,10 +61,10 @@ if (!$publicKeyStr) {
                     </div>
                     <div class="form-text">Envie um arquivo PNG/JPG do QR Code quando não puder usar a câmera.</div>
                 </div>
--->
+
                 <div id="loading" class="text-center" style="display:none;">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted fw-bold">Analisando Criptografia...</p>
+                    <p class="mt-2 text-muted fw-bold">Validando assinatura digital...</p>
                 </div>
 
                 <div id="result-container" class="result-box shadow-sm">
@@ -61,49 +72,91 @@ if (!$publicKeyStr) {
                     <p id="result-msg" class="mb-0"></p>
                     <button class="btn btn-outline-dark mt-3 btn-sm" onclick="startScanner()">Escanear Outro</button>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
+
     <div id="qr-file-reader" style="display:none;"></div>
 
+    <?php if ($keyError === ''): ?>
     <script>
-        const PUBLIC_KEY_ARMORED = `<?php echo $publicKeyStr; ?>`;
+        const PUBLIC_KEY_PEM = `<?php echo $publicKeyStr; ?>`;
         let html5QrcodeScanner;
         let html5QrcodeFileScanner;
         let isProcessing = false;
         let scanningActive = false;
+        let cachedPublicKey;
+
+        function pemToArrayBuffer(pem) {
+            const base64 = pem.replace('-----BEGIN PUBLIC KEY-----', '')
+                .replace('-----END PUBLIC KEY-----', '')
+                .replace(/\s+/g, '');
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+
+            for (let index = 0; index < binary.length; index += 1) {
+                bytes[index] = binary.charCodeAt(index);
+            }
+
+            return bytes.buffer;
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+
+            for (let index = 0; index < binary.length; index += 1) {
+                bytes[index] = binary.charCodeAt(index);
+            }
+
+            return bytes.buffer;
+        }
+
+        async function getPublicKey() {
+            if (!window.crypto || !window.crypto.subtle) {
+                throw new Error('O navegador não suporta a API Web Crypto necessária para validar a assinatura.');
+            }
+
+            if (!cachedPublicKey) {
+                cachedPublicKey = await window.crypto.subtle.importKey(
+                    'spki',
+                    pemToArrayBuffer(PUBLIC_KEY_PEM),
+                    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+                    false,
+                    ['verify']
+                );
+            }
+
+            return cachedPublicKey;
+        }
 
         async function handleDecodedText(decodedText) {
-            console.log("Texto decodificado do QR:", decodedText);
-            
+            console.log('Texto decodificado do QR:', decodedText);
+
             let data;
             try {
                 data = JSON.parse(decodedText);
-            } catch (e) {
-                console.error("Erro ao fazer parse do JSON:", e, "Texto:", decodedText);
-                throw new Error("Erro ao interpretar o QR Code. Formato JSON inválido.");
+            } catch (error) {
+                console.error('Erro ao fazer parse do JSON:', error, 'Texto:', decodedText);
+                throw new Error('Erro ao interpretar o QR Code. Formato JSON inválido.');
             }
-            
+
             if (!data.id || !data.sig) {
-                console.error("Dados do QR Code:", data);
+                console.error('Dados do QR Code:', data);
                 throw new Error("Formato do QR Code inválido ou não pertencente ao sistema. Faltam campos 'id' ou 'sig'.");
             }
 
-            const publicKey = await openpgp.readKey({ armoredKey: PUBLIC_KEY_ARMORED });
-            const message = await openpgp.createMessage({ text: data.id });
-            const signature = await openpgp.readSignature({ armoredSignature: data.sig });
+            const verificationKey = await getPublicKey();
+            const valid = await window.crypto.subtle.verify(
+                { name: 'RSASSA-PKCS1-v1_5' },
+                verificationKey,
+                base64ToArrayBuffer(data.sig),
+                new TextEncoder().encode(data.id)
+            );
 
-            const verificationResult = await openpgp.verify({
-                message: message,
-                signature: signature,
-                verificationKeys: publicKey
-            });
-
-            const { verified } = verificationResult.signatures[0];
-            try {
-                await verified;
-            } catch (e) {
-                throw new Error("Assinatura PGP Inválida! O medicamento não foi gerado por esse sistema.");
+            if (!valid) {
+                throw new Error('Assinatura inválida. O medicamento não foi gerado por este sistema.');
             }
 
             const response = await fetch('api/validar_unicidade.php', {
@@ -148,7 +201,7 @@ if (!$publicKeyStr) {
         }
 
         function onScanFailure(error) {
-            // keep scanning silently
+            return error;
         }
 
         function showResult(type, title, message) {
@@ -192,8 +245,8 @@ if (!$publicKeyStr) {
             if (scanningActive && html5QrcodeScanner) {
                 try {
                     html5QrcodeScanner.pause(true);
-                } catch (e) {
-                    console.warn('Não foi possível pausar o scanner antes da leitura de arquivo:', e);
+                } catch (error) {
+                    console.warn('Não foi possível pausar o scanner antes da leitura de arquivo:', error);
                 }
                 scanningActive = false;
             }
@@ -205,8 +258,9 @@ if (!$publicKeyStr) {
                 if (!html5QrcodeFileScanner) {
                     html5QrcodeFileScanner = new Html5Qrcode('qr-file-reader');
                 }
+
                 const decodedText = await html5QrcodeFileScanner.scanFileV2(file, true);
-                console.log("Texto decodificado da imagem:", decodedText);
+                console.log('Texto decodificado da imagem:', decodedText);
                 await handleDecodedText(decodedText);
             } catch (err) {
                 console.error(err);
@@ -220,7 +274,11 @@ if (!$publicKeyStr) {
                 }
             }
         }
+
+        document.getElementById('btnValidateFile').addEventListener('click', validateFileImage);
+
         window.addEventListener('load', startScanner);
     </script>
+    <?php endif; ?>
 </body>
 </html>

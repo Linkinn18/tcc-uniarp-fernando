@@ -1,26 +1,9 @@
 <?php
-header('Content-Type: application/json');
+declare(strict_types=1);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
+require_once '../bootstrap.php';
 
-    if (empty($data['publicKey']) || empty($data['privateKey'])) {
-        echo json_encode(['success' => false, 'message' => 'Chaves ausentes.']);
-        exit;
-    }
-
-    $pubPath = '../keys/public.key';
-    $privPath = '../keys/private.key';
-
-    $pubResult = file_put_contents($pubPath, $data['publicKey']);
-    $privResult = file_put_contents($privPath, $data['privateKey']);
-
-    if ($pubResult === false || $privResult === false) {
-        echo json_encode(['success' => false, 'message' => 'Erro ao salvar as chaves no servidor. Verifique as permissões da pasta keys.']);
-    } else {
-        echo json_encode(['success' => true, 'message' => 'Chaves salvas com sucesso!']);
-    }
-} else {
-    echo json_encode(['success' => false, 'message' => 'Método inválido.']);
-}
-?>
+tcc_json_response([
+    'success' => false,
+    'message' => 'A geração de chaves via HTTP foi desativada. Use o comando: php bin/gerar_chaves.php',
+], 403);

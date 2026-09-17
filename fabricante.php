@@ -1,8 +1,14 @@
 <?php
-$privateKeyStr = @file_get_contents('keys/private.key');
-if (!$privateKeyStr) {
-    die("Chave privada não encontrada. Por favor, gere as chaves primeiro.");
-}
+declare(strict_types=1);
+
+require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/crypto.php';
+
+tcc_require_authentication();
+
+$keysExist = tcc_keys_exist();
+$csrfToken = tcc_csrf_token();
+$username = tcc_authenticated_username();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -11,7 +17,6 @@ if (!$privateKeyStr) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel do Fabricante - TCC Medicamentos</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/openpgp/dist/openpgp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { background-color: #f8f9fa; }
@@ -23,7 +28,11 @@ if (!$privateKeyStr) {
     <nav class="navbar navbar-dark bg-primary shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="index.php">⬅ Voltar ao Início</a>
-            <span class="navbar-text text-white fw-bold">Módulo do Fabricante (Área Segura)</span>
+            <div class="d-flex align-items-center gap-3 text-white">
+                <span class="navbar-text text-white fw-bold">Módulo do Fabricante</span>
+                <span class="small">Usuário: <?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?></span>
+                <a href="logout.php" class="btn btn-sm btn-outline-light">Sair</a>
+            </div>
         </div>
     </nav>
 
@@ -35,19 +44,26 @@ if (!$privateKeyStr) {
                         <h5 class="mb-0">Cadastrar Lote de Medicamento</h5>
                     </div>
                     <div class="card-body p-4">
-                        <form id="medicamentoForm">
-                            <div class="mb-3">
-                                <label class="form-label">Nome do Medicamento</label>
-                                <input type="text" class="form-control" id="nome" required placeholder="Ex: Omeprazol 20mg">
+                        <?php if (!$keysExist): ?>
+                            <div class="alert alert-warning mb-0">
+                                As chaves seguras ainda não foram geradas. Execute <strong>php bin/gerar_chaves.php</strong> no servidor após configurar o arquivo <strong>.env</strong>.
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Número do Lote</label>
-                                <input type="text" class="form-control" id="lote" required placeholder="Ex: LOTE-8902A">
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100 btn-lg mt-3" id="btn-gerar">
-                                Gerar e Assinar Medicamento (PGP)
-                            </button>
-                        </form>
+                        <?php else: ?>
+                            <form id="medicamentoForm">
+                                <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="mb-3">
+                                    <label class="form-label">Nome do Medicamento</label>
+                                    <input type="text" class="form-control" id="nome" required placeholder="Ex: Omeprazol 20mg">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Número do Lote</label>
+                                    <input type="text" class="form-control" id="lote" required placeholder="Ex: LOTE-8902A">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 btn-lg mt-3" id="btn-gerar">
+                                    Gerar e Assinar Medicamento
+                                </button>
+                            </form>
+                        <?php endif; ?>
 
                         <div id="status" class="mt-4"></div>
 
@@ -56,7 +72,7 @@ if (!$privateKeyStr) {
                             <div class="qr-container shadow-sm">
                                 <div id="qrcode"></div>
                             </div>
-                            <p class="text-muted mt-2 small">Este QR Code contém o ID único e a Assinatura PGP do laboratório.</p>
+                            <p class="text-muted mt-2 small">Este QR Code contém o ID único e a assinatura digital do laboratório.</p>
                             <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">Gerar Novo Medicamento</button>
                         </div>
                     </div>
@@ -65,50 +81,33 @@ if (!$privateKeyStr) {
         </div>
     </div>
 
+    <?php if ($keysExist): ?>
     <script>
-        const PRIVATE_KEY_ARMORED = `<?php echo $privateKeyStr; ?>`;
-
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
         document.getElementById('medicamentoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-gerar');
             const status = document.getElementById('status');
-            
-            const nome = document.getElementById('nome').value;
-            const lote = document.getElementById('lote').value;
-            const id = generateUUID();
+            const nome = document.getElementById('nome').value.trim();
+            const lote = document.getElementById('lote').value.trim();
+            const csrfToken = document.getElementById('csrf_token').value;
 
             btn.disabled = true;
-            btn.innerText = 'Assinando digitalmente...';
+            btn.innerText = 'Gerando assinatura segura...';
             status.innerHTML = '';
 
             try {
-                const privateKey = await openpgp.readPrivateKey({ armoredKey: PRIVATE_KEY_ARMORED });
-
-                const message = await openpgp.createMessage({ text: id });
-
-                const signature = await openpgp.sign({
-                    message: message,
-                    signingKeys: privateKey,
-                    detached: true
-                });
-
                 const response = await fetch('api/salvar_medicamento.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, nome, lote, assinatura: signature })
+                    body: JSON.stringify({ nome, lote, csrf_token: csrfToken })
                 });
 
                 const result = await response.json();
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     status.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
+                    const id = result.data.id;
+                    const signature = result.data.sig;
                     
                     const qrData = JSON.stringify({ id: id, sig: signature });
                     
@@ -125,17 +124,18 @@ if (!$privateKeyStr) {
                     });
 
                 } else {
-                    status.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
+                    status.innerHTML = `<div class="alert alert-danger">${result.message || 'Não foi possível gerar o medicamento.'}</div>`;
                     btn.disabled = false;
                     btn.innerText = 'Tentar Novamente';
                 }
             } catch (err) {
                 console.error(err);
-                status.innerHTML = `<div class="alert alert-danger">Erro criptográfico: ${err.message}</div>`;
+                status.innerHTML = `<div class="alert alert-danger">Erro ao comunicar com o servidor: ${err.message}</div>`;
                 btn.disabled = false;
                 btn.innerText = 'Tentar Novamente';
             }
         });
     </script>
+    <?php endif; ?>
 </body>
 </html>
