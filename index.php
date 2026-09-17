@@ -1,5 +1,11 @@
 <?php
-$keys_exist = file_exists('keys/public.key') && file_exists('keys/private.key');
+declare(strict_types=1);
+
+require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
+
+$keys_exist = tcc_keys_exist();
+$isAuthenticated = tcc_is_authenticated();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -26,8 +32,8 @@ $keys_exist = file_exists('keys/public.key') && file_exists('keys/private.key');
     <?php if (!$keys_exist): ?>
         <div class="alert alert-warning text-center shadow-sm">
             <h4>Atenção!</h4>
-            <p>O par de chaves PGP ainda não foi gerado. Antes de testar o sistema, você precisa configurá-lo.</p>
-            <a href="gerar_chaves.html" class="btn btn-warning fw-bold">Gerar Chaves PGP Agora</a>
+            <p>O par de chaves seguro ainda não foi gerado. Configure o arquivo <strong>.env</strong> e execute o script de linha de comando no servidor.</p>
+            <a href="gerar_chaves.html" class="btn btn-warning fw-bold">Ver instruções de geração</a>
         </div>
     <?php else: ?>
         <ul class="nav nav-pills nav-justified mb-4" role="tablist">
@@ -48,8 +54,8 @@ $keys_exist = file_exists('keys/public.key') && file_exists('keys/private.key');
                                 <span style="font-size: 3rem;">🏭</span>
                             </div>
                             <h3 class="card-title">Módulo do Fabricante</h3>
-                            <p class="card-text text-muted">Acesse a área restrita do laboratório para emitir novos medicamentos e gerar QR Codes com Assinatura Digital PGP.</p>
-                            <a href="fabricante.php" class="btn btn-primary btn-lg w-100 mt-3">Acessar Fabricante</a>
+                            <p class="card-text text-muted">Acesse a área autenticada do laboratório para emitir novos medicamentos e gerar QR Codes com assinatura digital no servidor.</p>
+                            <a href="<?= $isAuthenticated ? 'fabricante.php' : 'login.php' ?>" class="btn btn-primary btn-lg w-100 mt-3"><?= $isAuthenticated ? 'Abrir Painel do Fabricante' : 'Entrar como Fabricante' ?></a>
                         </div>
                     </div>
                 </div>
@@ -139,113 +145,116 @@ $keys_exist = file_exists('keys/public.key') && file_exists('keys/private.key');
     const qrJson = document.getElementById('qrJson');
     let currentQr;
 
-    function setActiveTab(tab) {
-        homeTab.classList.toggle('active', tab === 'home');
-        searchTab.classList.toggle('active', tab === 'search');
-        homePanel.style.display = tab === 'home' ? 'block' : 'none';
-        searchPanel.style.display = tab === 'search' ? 'block' : 'none';
+    if (homeTab && searchTab && homePanel && searchPanel && searchForm) {
 
-        if (tab === 'search') {
+        function setActiveTab(tab) {
+            homeTab.classList.toggle('active', tab === 'home');
+            searchTab.classList.toggle('active', tab === 'search');
+            homePanel.style.display = tab === 'home' ? 'block' : 'none';
+            searchPanel.style.display = tab === 'search' ? 'block' : 'none';
+
+            if (tab === 'search') {
+                loadResults(searchName.value.trim(), searchLote.value.trim());
+            }
+        }
+
+        homeTab.addEventListener('click', () => setActiveTab('home'));
+        searchTab.addEventListener('click', () => setActiveTab('search'));
+
+        async function loadResults(nome = '', lote = '') {
+            const query = new URLSearchParams();
+            if (nome) query.set('nome', nome);
+            if (lote) query.set('lote', lote);
+
+            searchMessage.innerHTML = '<div class="spinner-border text-primary" role="status"></div> Carregando...';
+            resultsSection.style.display = 'none';
+            qrContainer.style.display = 'none';
+
+            try {
+                const response = await fetch('api/buscar_medicamentos.php?' + query.toString());
+                const result = await response.json();
+
+                if (!result.success) {
+                    searchMessage.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
+                    return;
+                }
+
+                const data = result.data || [];
+                if (!data.length) {
+                    searchMessage.innerHTML = '<div class="alert alert-info">Nenhum registro encontrado.</div>';
+                    resultsBody.innerHTML = '';
+                    return;
+                }
+
+                searchMessage.innerHTML = `<div class="alert alert-success">Encontrados ${data.length} registro(s).</div>`;
+                resultsBody.innerHTML = data.map(item => {
+                    const idLabel = item.id.length > 20 ? item.id.slice(0, 20) + '…' : item.id;
+                    const hashLabel = item.hash.length > 20 ? item.hash.slice(0, 20) + '…' : item.hash;
+                    return `
+                        <tr>
+                            <td>${escapeHtml(item.nome)}</td>
+                            <td>${escapeHtml(item.lote)}</td>
+                            <td>${escapeHtml(item.data_fabricacao)}</td>
+                            <td><code title="${escapeHtml(item.id)}">${escapeHtml(idLabel)}</code></td>
+                            <td><code title="${escapeHtml(item.hash)}">${escapeHtml(hashLabel)}</code></td>
+                            <td>${escapeHtml(item.status_text)}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-secondary show-qr" data-id="${escapeHtml(item.id)}" data-sig="${escapeHtml(item.assinatura)}" data-nome="${escapeHtml(item.nome)}" data-lote="${escapeHtml(item.lote)}">Mostrar QR</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                resultsSection.style.display = 'block';
+            } catch (error) {
+                console.error(error);
+                searchMessage.innerHTML = '<div class="alert alert-danger">Erro ao consultar o banco de dados.</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
             loadResults(searchName.value.trim(), searchLote.value.trim());
-        }
-    }
-
-    homeTab.addEventListener('click', () => setActiveTab('home'));
-    searchTab.addEventListener('click', () => setActiveTab('search'));
-
-    async function loadResults(nome = '', lote = '') {
-        const query = new URLSearchParams();
-        if (nome) query.set('nome', nome);
-        if (lote) query.set('lote', lote);
-
-        searchMessage.innerHTML = '<div class="spinner-border text-primary" role="status"></div> Carregando...';
-        resultsSection.style.display = 'none';
-        qrContainer.style.display = 'none';
-
-        try {
-            const response = await fetch('api/buscar_medicamentos.php?' + query.toString());
-            const result = await response.json();
-
-            if (!result.success) {
-                searchMessage.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
-                return;
-            }
-
-            const data = result.data || [];
-            if (!data.length) {
-                searchMessage.innerHTML = '<div class="alert alert-info">Nenhum registro encontrado.</div>';
-                resultsBody.innerHTML = '';
-                return;
-            }
-
-            searchMessage.innerHTML = `<div class="alert alert-success">Encontrados ${data.length} registro(s).</div>`;
-            resultsBody.innerHTML = data.map(item => {
-                const idLabel = item.id.length > 20 ? item.id.slice(0, 20) + '…' : item.id;
-                const hashLabel = item.hash.length > 20 ? item.hash.slice(0, 20) + '…' : item.hash;
-                return `
-                    <tr>
-                        <td>${escapeHtml(item.nome)}</td>
-                        <td>${escapeHtml(item.lote)}</td>
-                        <td>${escapeHtml(item.data_fabricacao)}</td>
-                        <td><code title="${escapeHtml(item.id)}">${escapeHtml(idLabel)}</code></td>
-                        <td><code title="${escapeHtml(item.hash)}">${escapeHtml(hashLabel)}</code></td>
-                        <td>${escapeHtml(item.status_text)}</td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-outline-secondary show-qr" data-id="${escapeHtml(item.id)}" data-sig="${escapeHtml(item.assinatura)}" data-nome="${escapeHtml(item.nome)}" data-lote="${escapeHtml(item.lote)}">Mostrar QR</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            resultsSection.style.display = 'block';
-        } catch (error) {
-            console.error(error);
-            searchMessage.innerHTML = '<div class="alert alert-danger">Erro ao consultar o banco de dados.</div>';
-        }
-    }
-
-    function escapeHtml(text) {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    searchForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        loadResults(searchName.value.trim(), searchLote.value.trim());
-    });
-
-    document.addEventListener('click', (event) => {
-        if (!event.target.classList.contains('show-qr')) {
-            return;
-        }
-
-        const button = event.target;
-        const id = button.getAttribute('data-id');
-        const sig = button.getAttribute('data-sig');
-        const nome = button.getAttribute('data-nome');
-        const lote = button.getAttribute('data-lote');
-
-        qrContainer.style.display = 'block';
-        qrCodeHolder.innerHTML = '';
-        qrJson.textContent = JSON.stringify({ id, assinatura: sig, nome, lote }, null, 2);
-
-        if (currentQr) {
-            currentQr.clear();
-        }
-
-        currentQr = new QRCode(qrCodeHolder, {
-            text: JSON.stringify({ id, sig }),
-            width: 256,
-            height: 256,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.L
         });
-    });
+
+        document.addEventListener('click', (event) => {
+            if (!event.target.classList.contains('show-qr')) {
+                return;
+            }
+
+            const button = event.target;
+            const id = button.getAttribute('data-id');
+            const sig = button.getAttribute('data-sig');
+            const nome = button.getAttribute('data-nome');
+            const lote = button.getAttribute('data-lote');
+
+            qrContainer.style.display = 'block';
+            qrCodeHolder.innerHTML = '';
+            qrJson.textContent = JSON.stringify({ id, assinatura: sig, nome, lote }, null, 2);
+
+            if (currentQr) {
+                currentQr.clear();
+            }
+
+            currentQr = new QRCode(qrCodeHolder, {
+                text: JSON.stringify({ id, sig }),
+                width: 256,
+                height: 256,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.L
+            });
+        });
+    }
 </script>
 </body>
 </html>

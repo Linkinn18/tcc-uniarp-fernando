@@ -10,3 +10,10 @@ CREATE TABLE IF NOT EXISTS medicamentos (
     status TINYINT(1) DEFAULT 0 COMMENT '0 = Nao Validado, 1 = Validado',
     data_validacao DATETIME NULL
 );
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(80) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
