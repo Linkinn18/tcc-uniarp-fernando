@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/crypto.php';
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../crypto.php';
 
 tcc_require_authentication();
 
@@ -73,7 +73,10 @@ $username = tcc_authenticated_username();
                                 <div id="qrcode"></div>
                             </div>
                             <p class="text-muted mt-2 small">Este QR Code contém o ID único e a assinatura digital do laboratório.</p>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">Gerar Novo Medicamento</button>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button id="btn-download-qr" class="btn btn-outline-primary btn-sm">Baixar QR (PNG)</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">Gerar Novo Medicamento</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -82,59 +85,61 @@ $username = tcc_authenticated_username();
     </div>
 
     <?php if ($keysExist): ?>
+    <script src="assets/js/dom.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/qr.js"></script>
     <script>
-        document.getElementById('medicamentoForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-gerar');
-            const status = document.getElementById('status');
-            const nome = document.getElementById('nome').value.trim();
-            const lote = document.getElementById('lote').value.trim();
-            const csrfToken = document.getElementById('csrf_token').value;
+        (function () {
+            document.getElementById('medicamentoForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('btn-gerar');
+                const status = document.getElementById('status');
+                const nome = document.getElementById('nome').value.trim();
+                const lote = document.getElementById('lote').value.trim();
+                const csrfToken = document.getElementById('csrf_token').value;
 
-            btn.disabled = true;
-            btn.innerText = 'Gerando assinatura segura...';
-            status.innerHTML = '';
+                btn.disabled = true;
+                btn.innerText = 'Gerando assinatura segura...';
+                status.innerHTML = '';
 
-            try {
-                const response = await fetch('api/salvar_medicamento.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, lote, csrf_token: csrfToken })
-                });
+                try {
+                    const response = await tccApi.postJson('api/salvar_medicamento.php', { nome, lote, csrf_token: csrfToken });
+                    const result = response.json || { success: false, message: 'Resposta inválida' };
 
-                const result = await response.json();
+                        if (response.ok && result.success) {
+                        status.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
+                        const id = result.data.id;
+                        const signature = result.data.sig;
 
-                if (response.ok && result.success) {
-                    status.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
-                    const id = result.data.id;
-                    const signature = result.data.sig;
-                    
-                    const qrData = JSON.stringify({ id: id, sig: signature });
-                    
-                    document.getElementById('resultado').style.display = 'block';
-                    document.getElementById('medicamentoForm').style.display = 'none';
-                    
-                    new QRCode(document.getElementById("qrcode"), {
-                        text: qrData,
-                        width: 256,
-                        height: 256,
-                        colorDark : "#000000",
-                        colorLight : "#ffffff",
-                        correctLevel : QRCode.CorrectLevel.L
-                    });
+                        const qrData = { id: id, sig: signature };
 
-                } else {
-                    status.innerHTML = `<div class="alert alert-danger">${result.message || 'Não foi possível gerar o medicamento.'}</div>`;
+                        document.getElementById('resultado').style.display = 'block';
+                        document.getElementById('medicamentoForm').style.display = 'none';
+
+                        tccQr.renderQr(document.getElementById('qrcode'), qrData);
+                        // expose last data for download
+                        window._lastTccQrData = qrData;
+                        const dlBtn = document.getElementById('btn-download-qr');
+                        if (dlBtn) {
+                            dlBtn.addEventListener('click', () => {
+                                const filename = `tcc-qr-${qrData.id}.png`;
+                                tccQr.downloadQr(document.getElementById('qrcode'), qrData, filename, 512).catch(err => console.error(err));
+                            });
+                        }
+
+                    } else {
+                        status.innerHTML = `<div class="alert alert-danger">${tccDom.escapeHtml(result.message || 'Não foi possível gerar o medicamento.')}</div>`;
+                        btn.disabled = false;
+                        btn.innerText = 'Tentar Novamente';
+                    }
+                } catch (err) {
+                    console.error(err);
+                    status.innerHTML = `<div class="alert alert-danger">Erro ao comunicar com o servidor: ${tccDom.escapeHtml(err.message)}</div>`;
                     btn.disabled = false;
                     btn.innerText = 'Tentar Novamente';
                 }
-            } catch (err) {
-                console.error(err);
-                status.innerHTML = `<div class="alert alert-danger">Erro ao comunicar com o servidor: ${err.message}</div>`;
-                btn.disabled = false;
-                btn.innerText = 'Tentar Novamente';
-            }
-        });
+            });
+        })();
     </script>
     <?php endif; ?>
 </body>

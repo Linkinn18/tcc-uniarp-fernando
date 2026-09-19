@@ -1,0 +1,1 @@
+{"version":2,"defects":{"Tests\\Service\\AssinaturaServiceTest::testCreateAndStore":8,"Tests\\Service\\ValidacaoServiceTest::testValidateAndMarkInvalidSignature":8},"times":{"Tests\\Service\\AssinaturaServiceTest::testCreateAndStore":0.006,"Tests\\Service\\ValidacaoServiceTest::testValidateAndMarkInvalidSignature":0.002}}

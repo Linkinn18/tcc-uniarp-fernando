@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/crypto.php';
+require_once __DIR__ . '/../crypto.php';
 
 $publicKeyStr = '';
 $keyError = '';
@@ -80,6 +80,8 @@ try {
     <div id="qr-file-reader" style="display:none;"></div>
 
     <?php if ($keyError === ''): ?>
+    <script src="assets/js/dom.js"></script>
+    <script src="assets/js/api.js"></script>
     <script>
         const PUBLIC_KEY_PEM = `<?php echo $publicKeyStr; ?>`;
         let html5QrcodeScanner;
@@ -134,18 +136,37 @@ try {
         async function handleDecodedText(decodedText) {
             console.log('Texto decodificado do QR:', decodedText);
 
+            // html5-qrcode can return either a string or an object with several shapes.
+            // Normalize to a raw JSON string first.
+            let rawText = decodedText;
+            if (typeof decodedText === 'object' && decodedText !== null) {
+                rawText = decodedText.decodedText ?? decodedText.text ?? (decodedText.result && decodedText.result.text) ?? JSON.stringify(decodedText);
+            }
+
             let data;
             try {
-                data = JSON.parse(decodedText);
+                data = JSON.parse(rawText);
             } catch (error) {
-                console.error('Erro ao fazer parse do JSON:', error, 'Texto:', decodedText);
+                console.error('Erro ao fazer parse do JSON:', error, 'Texto:', rawText);
                 throw new Error('Erro ao interpretar o QR Code. Formato JSON inválido.');
             }
 
-            if (!data.id || !data.sig) {
-                console.error('Dados do QR Code:', data);
-                throw new Error("Formato do QR Code inválido ou não pertencente ao sistema. Faltam campos 'id' ou 'sig'.");
-            }
+                // Be permissive: allow legacy/enveloped formats.
+                // Examples supported:
+                // - { id: "...", sig: "..." }
+                // - { data: { id: "...", sig: "..." } }
+                // - { payload: { id: "...", sig: "..." } }
+                // - { identifier: "...", signature: "..." }
+                let id = data.id ?? (data.data && data.data.id) ?? (data.payload && data.payload.id) ?? data.identifier ?? null;
+                let sig = data.sig ?? (data.data && data.data.sig) ?? (data.payload && data.payload.sig) ?? data.signature ?? data.assinatura ?? null;
+
+                if (!id || !sig) {
+                    console.error('Dados do QR Code (não conformes):', data);
+                    throw new Error("Formato do QR Code inválido ou não pertencente ao sistema. Faltam campos 'id' ou 'sig'.");
+                }
+
+                // replace data with normalized form
+                data = { id: id, sig: sig };
 
             const verificationKey = await getPublicKey();
             const valid = await window.crypto.subtle.verify(
@@ -159,13 +180,9 @@ try {
                 throw new Error('Assinatura inválida. O medicamento não foi gerado por este sistema.');
             }
 
-            const response = await fetch('api/validar_unicidade.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: data.id })
-            });
-
-            const result = await response.json();
+            // Send both id and signature to the server so it can re-verify before marking
+            const response = await tccApi.postJson('api/validar_unicidade.php', { id: data.id, sig: data.sig });
+            const result = response.json || { success: false, message: 'Resposta inválida' };
             if (result.success) {
                 showResult('success', 'Medicamento Autêntico', result.message);
             } else {
@@ -269,7 +286,14 @@ try {
                 document.getElementById('loading').style.display = 'none';
                 isProcessing = false;
                 if (html5QrcodeFileScanner) {
-                    html5QrcodeFileScanner.clear().catch(() => {});
+                    try {
+                        const clearResult = html5QrcodeFileScanner.clear && html5QrcodeFileScanner.clear();
+                        if (clearResult && typeof clearResult.then === 'function') {
+                            clearResult.catch(() => {});
+                        }
+                    } catch (clearErr) {
+                        console.warn('Erro ao limpar file scanner:', clearErr);
+                    }
                     html5QrcodeFileScanner = null;
                 }
             }

@@ -81,7 +81,7 @@ function tcc_get_public_key(): string
     return $publicKey;
 }
 
-function tcc_sign_identifier(string $identifier): string
+function tcc_sign_identifier_rsa(string $identifier): string
 {
     if (!tcc_keys_exist()) {
         throw new RuntimeException('As chaves ainda não foram geradas.');
@@ -105,12 +105,12 @@ function tcc_sign_identifier(string $identifier): string
     return base64_encode($signature);
 }
 
-function tcc_verify_identifier_signature(string $identifier, string $signatureBase64): bool
+function tcc_verify_identifier_signature_rsa(string $identifier, string $signatureBase64): bool
 {
     try {
         $publicKey = tcc_get_public_key();
         $publicKeyResource = openssl_pkey_get_public($publicKey);
-        
+
         if ($publicKeyResource === false) {
             return false;
         }
@@ -121,27 +121,11 @@ function tcc_verify_identifier_signature(string $identifier, string $signatureBa
         }
 
         $result = openssl_verify($identifier, $signature, $publicKeyResource, OPENSSL_ALGO_SHA256);
-        
+
         return $result === 1;
     } catch (Throwable $e) {
         return false;
     }
 }
 
-function tcc_generate_uuid_v4(): string
-{
-    $bytes = random_bytes(16);
-    $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-    $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
-
-    $hex = bin2hex($bytes);
-
-    return sprintf(
-        '%s-%s-%s-%s-%s',
-        substr($hex, 0, 8),
-        substr($hex, 8, 4),
-        substr($hex, 12, 4),
-        substr($hex, 16, 4),
-        substr($hex, 20, 12)
-    );
-}
+// `tcc_generate_uuid_v4` is intentionally implemented in `src/helpers.php`.

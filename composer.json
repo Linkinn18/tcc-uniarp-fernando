@@ -1,0 +1,23 @@
+{
+    "name": "tcc-uniarp-fernando/tcc",
+    "description": "Sistema TCC - gerenciamento de medicamentos",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "require": {},
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpstan/phpstan": "^1.9"
+    },
+    "minimum-stability": "stable",
+    "config": {
+        "optimize-autoloader": true
+    }
+}
