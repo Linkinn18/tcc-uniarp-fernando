@@ -42,13 +42,6 @@ sudo systemctl restart httpd
 2. Instale em `C:\xampp` (ou outro caminho)
 3. Certifique-se de que PHP está no PATH do sistema
 
-#### macOS
-
-```bash
-brew install php@8.2 openssl
-# ou use MAMP/XAMPP
-```
-
 ## Segurança implementada
 
 - Chave privada fora do diretório público.
@@ -148,15 +141,11 @@ Demonstrar a correção da condição de corrida (P03):
 $env:TCC_STORAGE_PATH="C:\xampp\storage\tcc-p03-demo"; php bin\demonstrar_p03.php
 ```
 
-### Usando Docker (cross-platform)
+> **Nota**: A maioria dos comandos trabalha com caminhos relativos. Se necessário usar o PHP de um caminho específico (como `/opt/lampp/bin/php` ou `C:\xampp\php\php.exe`), substitua `php` pelo caminho completo.
+## Observações sobre o comportamento antigo
 
-Caso queira rodar em container sem instalar PHP localmente:
-
-```bash
-docker run --rm -v $(pwd):/app -w /app php:8-cli php bin/gerar_chaves.php
-```
-
-> **Nota**: A maioria dos comandos trabalham com caminhos relativos. Se necessário usar o PHP de um caminho específico (como `/opt/lampp/bin/php` ou `C:\xampp\php\php.exe`), substitua `php` pelo caminho completo.
+- Antes, você rodava o Apache local (XAMPP/LAMP) apontando o DocumentRoot para a raiz do projeto e acessava `http://localhost`. Com a reorganização, o conteúdo público foi movido para `tcc/public` — se preferir continuar usando o Apache do sistema, ajuste o DocumentRoot para `.../tcc/public`.
+- Composer fornece autoload PSR-4 (`App\\` → `src/`). Após `composer install`, carregue `vendor/autoload.php` em scripts CLI ou ao usar endpoints que dependem de classes `App\\`.
 
 ## Arquivos principais
 

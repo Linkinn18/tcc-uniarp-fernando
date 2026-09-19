@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html:cached
+    environment:
+      APACHE_RUN_USER: www-data
+      APACHE_RUN_GROUP: www-data
+    command: bash -lc "sed -ri -e 's!DocumentRoot /var/www/html!DocumentRoot /var/www/html/tcc/public!g' /etc/apache2/sites-available/000-default.conf && apache2-foreground"

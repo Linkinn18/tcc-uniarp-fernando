@@ -1,0 +1,9 @@
+parameters:
+  level: 5
+  paths:
+    - src
+    - public
+    - api
+
+includes:
+  - vendor/phpstan/phpstan/conf/bleedingEdge.neon

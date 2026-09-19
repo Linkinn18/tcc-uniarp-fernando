@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+file_put_contents('/tmp/salvar_debug.log', date('c') . " ENTER root bootstrap.php\n", FILE_APPEND);
+
 const TCC_APP_ROOT = __DIR__;
 
 function tcc_load_env_file(string $filePath): void

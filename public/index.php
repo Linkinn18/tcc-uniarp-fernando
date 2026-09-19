@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 $keys_exist = tcc_keys_exist();
 $isAuthenticated = tcc_is_authenticated();
@@ -29,7 +29,7 @@ $isAuthenticated = tcc_is_authenticated();
 </div>
 
 <div class="container">
-    <?php if (!$keys_exist): ?>
+            <?php if (!$keys_exist): ?>
         <div class="alert alert-warning text-center shadow-sm">
             <h4>Atenção!</h4>
             <p>O par de chaves seguro ainda não foi gerado. Configure o arquivo <strong>.env</strong> e execute o script de linha de comando no servidor.</p>
@@ -55,11 +55,11 @@ $isAuthenticated = tcc_is_authenticated();
                             </div>
                             <h3 class="card-title">Módulo do Fabricante</h3>
                             <p class="card-text text-muted">Acesse a área autenticada do laboratório para emitir novos medicamentos e gerar QR Codes com assinatura digital no servidor.</p>
-                            <a href="<?= $isAuthenticated ? 'fabricante.php' : 'login.php' ?>" class="btn btn-primary btn-lg w-100 mt-3"><?= $isAuthenticated ? 'Abrir Painel do Fabricante' : 'Entrar como Fabricante' ?></a>
+                            <a href="fabricante.php" class="btn btn-primary btn-lg w-100 mt-3"><?= $isAuthenticated ? 'Abrir Painel do Fabricante' : 'Entrar como Fabricante' ?></a>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="col-md-6">
                     <div class="card h-100 shadow-sm border-0">
                         <div class="card-body text-center p-5">
@@ -73,7 +73,7 @@ $isAuthenticated = tcc_is_authenticated();
                     </div>
                 </div>
             </div>
-        </div> 
+        </div>
 
         <div id="search-panel" class="tab-panel" style="display:none;">
             <div class="card shadow-sm border-0 mb-4">
@@ -116,10 +116,14 @@ $isAuthenticated = tcc_is_authenticated();
                 </div>
             </div>
 
-            <div id="qrContainer" class="card shadow-sm border-0 mt-4" style="display:none;">
+                <div id="qrContainer" class="card shadow-sm border-0 mt-4" style="display:none;">
                 <div class="card-body">
                     <h5 class="card-title">QR Code do Registro</h5>
                     <div class="qr-container shadow-sm p-4 bg-white rounded" id="qrCodeHolder"></div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button id="btn-download-qr" class="btn btn-sm btn-outline-primary">Baixar QR (PNG)</button>
+                        <div class="flex-fill"></div>
+                    </div>
                     <pre id="qrJson" class="mt-3 p-3 bg-light rounded"></pre>
                 </div>
             </div>
@@ -129,7 +133,11 @@ $isAuthenticated = tcc_is_authenticated();
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="assets/js/dom.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/qr.js"></script>
 <script>
+(function () {
     const homeTab = document.getElementById('tab-home');
     const searchTab = document.getElementById('tab-search');
     const homePanel = document.getElementById('home-panel');
@@ -171,8 +179,8 @@ $isAuthenticated = tcc_is_authenticated();
             qrContainer.style.display = 'none';
 
             try {
-                const response = await fetch('api/buscar_medicamentos.php?' + query.toString());
-                const result = await response.json();
+                const response = await tccApi.fetchJson('api/buscar_medicamentos.php?' + query.toString());
+                const result = response.json || { success: false, message: 'Resposta inválida' };
 
                 if (!result.success) {
                     searchMessage.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
@@ -189,17 +197,17 @@ $isAuthenticated = tcc_is_authenticated();
                 searchMessage.innerHTML = `<div class="alert alert-success">Encontrados ${data.length} registro(s).</div>`;
                 resultsBody.innerHTML = data.map(item => {
                     const idLabel = item.id.length > 20 ? item.id.slice(0, 20) + '…' : item.id;
-                    const hashLabel = item.hash.length > 20 ? item.hash.slice(0, 20) + '…' : item.hash;
+                    const hashLabel = (item.hash || '').length > 20 ? (item.hash || '').slice(0, 20) + '…' : (item.hash || '');
                     return `
                         <tr>
-                            <td>${escapeHtml(item.nome)}</td>
-                            <td>${escapeHtml(item.lote)}</td>
-                            <td>${escapeHtml(item.data_fabricacao)}</td>
-                            <td><code title="${escapeHtml(item.id)}">${escapeHtml(idLabel)}</code></td>
-                            <td><code title="${escapeHtml(item.hash)}">${escapeHtml(hashLabel)}</code></td>
-                            <td>${escapeHtml(item.status_text)}</td>
+                            <td>${tccDom.escapeHtml(item.nome)}</td>
+                            <td>${tccDom.escapeHtml(item.lote)}</td>
+                            <td>${tccDom.escapeHtml(item.data_fabricacao)}</td>
+                            <td><code title="${tccDom.escapeHtml(item.id)}">${tccDom.escapeHtml(idLabel)}</code></td>
+                            <td><code title="${tccDom.escapeHtml(item.hash || '')}">${tccDom.escapeHtml(hashLabel)}</code></td>
+                            <td>${tccDom.escapeHtml(item.status_text)}</td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-outline-secondary show-qr" data-id="${escapeHtml(item.id)}" data-sig="${escapeHtml(item.assinatura)}" data-nome="${escapeHtml(item.nome)}" data-lote="${escapeHtml(item.lote)}">Mostrar QR</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary show-qr" data-id="${tccDom.escapeHtml(item.id)}" data-sig="${tccDom.escapeHtml(item.assinatura ?? '')}" data-nome="${tccDom.escapeHtml(item.nome)}" data-lote="${tccDom.escapeHtml(item.lote)}">Mostrar QR</button>
                             </td>
                         </tr>
                     `;
@@ -212,21 +220,7 @@ $isAuthenticated = tcc_is_authenticated();
             }
         }
 
-        function escapeHtml(text) {
-            return text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        searchForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            loadResults(searchName.value.trim(), searchLote.value.trim());
-        });
-
-        document.addEventListener('click', (event) => {
+            document.addEventListener('click', (event) => {
             if (!event.target.classList.contains('show-qr')) {
                 return;
             }
@@ -242,19 +236,27 @@ $isAuthenticated = tcc_is_authenticated();
             qrJson.textContent = JSON.stringify({ id, assinatura: sig, nome, lote }, null, 2);
 
             if (currentQr) {
-                currentQr.clear();
+                try { currentQr.clear(); } catch(e) {}
             }
 
-            currentQr = new QRCode(qrCodeHolder, {
-                text: JSON.stringify({ id, sig }),
-                width: 256,
-                height: 256,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.L
-            });
+            currentQr = tccQr.renderQr(qrCodeHolder, { id, sig });
+            // remember last data for download
+            window._lastTccQrData = { id, sig };
+            const dlBtn = document.getElementById('btn-download-qr');
+            if (dlBtn) {
+                dlBtn.onclick = () => {
+                    const filename = `tcc-qr-${id}.png`;
+                    tccQr.downloadQr(qrCodeHolder, { id, sig }, filename, 512).catch(err => console.error(err));
+                };
+            }
+        });
+
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            loadResults(searchName.value.trim(), searchLote.value.trim());
         });
     }
+})();
 </script>
 </body>
 </html>
