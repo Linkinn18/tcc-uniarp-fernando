@@ -1,10 +1,22 @@
 (function () {
     'use strict';
 
+    function buildPayload(data) {
+        if (!data || !data.id || !data.sig) {
+            throw new Error('Dados insuficientes para gerar o QR Code.');
+        }
+
+        const params = new URLSearchParams();
+        params.set('i', data.id);
+        params.set('s', data.sig);
+        return params.toString();
+    }
+
     function renderQr(element, data, options = {}) {
         if (!element) return null;
         element.innerHTML = '';
-        return new QRCode(element, Object.assign({ text: JSON.stringify(data), width: 256, height: 256, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L }, options));
+        const payloadText = options.text || buildPayload(data);
+        return new QRCode(element, Object.assign({ text: payloadText, width: 256, height: 256, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }, options));
     }
 
     function downloadQr(element, data, filename = 'tcc-qr.png', size = 512) {
@@ -59,5 +71,5 @@
         });
     }
 
-    window.tccQr = { renderQr, downloadQr };
+    window.tccQr = { buildPayload, renderQr, downloadQr };
 })();

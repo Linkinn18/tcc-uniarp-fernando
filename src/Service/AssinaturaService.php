@@ -20,9 +20,9 @@ final class AssinaturaService
     {
         $id = \tcc_generate_uuid_v4();
         $assinatura = \tcc_sign_identifier($id);
-        $dataFabricacao = date('Y-m-d H:i:s');
+        $criadoEm = date('Y-m-d H:i:s');
 
-        $this->repo->insert($id, $nome, $lote, $dataFabricacao, $assinatura);
+        $this->repo->insert($id, $nome, $lote, $criadoEm, $assinatura);
 
         return ['id' => $id, 'sig' => $assinatura];
     }

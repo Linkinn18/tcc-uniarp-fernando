@@ -133,6 +133,49 @@ try {
             return cachedPublicKey;
         }
 
+        function extractPayloadFromObject(data) {
+            const id = data.id ?? (data.data && data.data.id) ?? (data.payload && data.payload.id) ?? data.identifier ?? data.i ?? null;
+            const sig = data.sig ?? (data.data && data.data.sig) ?? (data.payload && data.payload.sig) ?? data.signature ?? data.assinatura ?? data.s ?? null;
+
+            if (!id || !sig) {
+                return null;
+            }
+
+            return { id, sig };
+        }
+
+        function parseQrPayload(rawText) {
+            try {
+                const parsedJson = JSON.parse(rawText);
+                const payloadFromJson = extractPayloadFromObject(parsedJson);
+                if (payloadFromJson) {
+                    return payloadFromJson;
+                }
+            } catch (error) {
+            }
+
+            try {
+                const url = new URL(rawText, window.location.href);
+                const id = url.searchParams.get('i') || url.searchParams.get('id');
+                const sig = url.searchParams.get('s') || url.searchParams.get('sig') || url.searchParams.get('signature');
+                if (id && sig) {
+                    return { id, sig };
+                }
+            } catch (error) {
+            }
+
+            const queryString = rawText.startsWith('?') ? rawText.slice(1) : rawText;
+            const params = new URLSearchParams(queryString);
+            const id = params.get('i') || params.get('id');
+            const sig = params.get('s') || params.get('sig') || params.get('signature');
+
+            if (id && sig) {
+                return { id, sig };
+            }
+
+            throw new Error('Erro ao interpretar o QR Code. Formato não suportado.');
+        }
+
         async function handleDecodedText(decodedText) {
             console.log('Texto decodificado do QR:', decodedText);
 
@@ -142,31 +185,13 @@ try {
             if (typeof decodedText === 'object' && decodedText !== null) {
                 rawText = decodedText.decodedText ?? decodedText.text ?? (decodedText.result && decodedText.result.text) ?? JSON.stringify(decodedText);
             }
-
             let data;
             try {
-                data = JSON.parse(rawText);
+                data = parseQrPayload(rawText);
             } catch (error) {
-                console.error('Erro ao fazer parse do JSON:', error, 'Texto:', rawText);
-                throw new Error('Erro ao interpretar o QR Code. Formato JSON inválido.');
+                console.error('Erro ao interpretar payload do QR:', error, 'Texto:', rawText);
+                throw error;
             }
-
-                // Be permissive: allow legacy/enveloped formats.
-                // Examples supported:
-                // - { id: "...", sig: "..." }
-                // - { data: { id: "...", sig: "..." } }
-                // - { payload: { id: "...", sig: "..." } }
-                // - { identifier: "...", signature: "..." }
-                let id = data.id ?? (data.data && data.data.id) ?? (data.payload && data.payload.id) ?? data.identifier ?? null;
-                let sig = data.sig ?? (data.data && data.data.sig) ?? (data.payload && data.payload.sig) ?? data.signature ?? data.assinatura ?? null;
-
-                if (!id || !sig) {
-                    console.error('Dados do QR Code (não conformes):', data);
-                    throw new Error("Formato do QR Code inválido ou não pertencente ao sistema. Faltam campos 'id' ou 'sig'.");
-                }
-
-                // replace data with normalized form
-                data = { id: id, sig: sig };
 
             const verificationKey = await getPublicKey();
             const valid = await window.crypto.subtle.verify(
@@ -301,7 +326,25 @@ try {
 
         document.getElementById('btnValidateFile').addEventListener('click', validateFileImage);
 
-        window.addEventListener('load', startScanner);
+        window.addEventListener('load', async () => {
+            const initialId = new URLSearchParams(window.location.search).get('i') || new URLSearchParams(window.location.search).get('id');
+            const initialSig = new URLSearchParams(window.location.search).get('s') || new URLSearchParams(window.location.search).get('sig');
+
+            if (initialId && initialSig) {
+                document.getElementById('loading').style.display = 'block';
+                try {
+                    await handleDecodedText(`i=${encodeURIComponent(initialId)}&s=${encodeURIComponent(initialSig)}`);
+                } catch (err) {
+                    console.error(err);
+                    showResult('danger', 'Falha na validação automática', err.message || 'Não foi possível validar o payload da URL.');
+                } finally {
+                    document.getElementById('loading').style.display = 'none';
+                }
+                return;
+            }
+
+            startScanner();
+        });
     </script>
     <?php endif; ?>
 </body>

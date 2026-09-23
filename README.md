@@ -5,7 +5,7 @@ Projeto em PHP para emissão e validação de medicamentos com assinatura digita
 ## Fluxo atual
 
 - O fabricante faz login antes de emitir medicamentos.
-- O servidor gera o `id` do medicamento e assina esse `id` com a chave privada.
+- O servidor gera o `id` de cada unidade e assina esse `id` com a chave privada.
 - O QR Code contém `{ id, sig }`.
 - O validador pode verificar a assinatura no navegador como feedback imediato.
 - A decisão final acontece no servidor: [api/validar_unicidade.php](api/validar_unicidade.php) valida a assinatura e só então tenta marcar o medicamento como validado.
@@ -177,7 +177,7 @@ $env:TCC_STORAGE_PATH="C:\xampp\storage\tcc-p03-demo"; php bin\demonstrar_p03.ph
 - [bootstrap.php](bootstrap.php): leitura do `.env` e caminhos de storage.
 - [crypto.php](crypto.php): geração de chaves, assinatura e verificação da assinatura.
 - [db.php](db.php): conexão com SQLite e provisionamento do usuário inicial a partir do `.env`.
-- [public/fabricante.php](public/fabricante.php): área autenticada do fabricante.
+- [public/fabricante.php](public/fabricante.php): área autenticada para emissão de unidades vinculadas a um lote informado.
 - [public/validador.php](public/validador.php): leitura do QR Code e envio de `id` e `sig`.
 - [public/api/salvar_medicamento.php](public/api/salvar_medicamento.php): emissão de medicamento no backend.
 - [public/api/validar_unicidade.php](public/api/validar_unicidade.php): verificação de assinatura e validação atômica de unicidade.
