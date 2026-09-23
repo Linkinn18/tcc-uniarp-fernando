@@ -106,15 +106,20 @@ function tcc_private_key_path(): string
 function tcc_sync_owner_with_storage_root(string $path): void
 {
     $storageRoot = tcc_storage_root();
-    $owner = @fileowner($storageRoot);
-    $group = @filegroup($storageRoot);
+    $owner = fileowner($storageRoot);
+    $group = filegroup($storageRoot);
 
     if ($owner === false || $group === false) {
         return;
     }
 
-    @chown($path, $owner);
-    @chgrp($path, $group);
+    if (!chown($path, $owner)) {
+        error_log('Não foi possível ajustar o owner de: ' . $path);
+    }
+
+    if (!chgrp($path, $group)) {
+        error_log('Não foi possível ajustar o group de: ' . $path);
+    }
 }
 
 function tcc_keys_exist(): bool
