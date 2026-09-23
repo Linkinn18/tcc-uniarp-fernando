@@ -9,15 +9,24 @@ use PDOException;
 
 final class Database
 {
+    private static function ensureDirectory(string $dir): void
+    {
+        if (is_dir($dir)) {
+            return;
+        }
+
+        if (!mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new PDOException('Não foi possível criar o diretório do banco SQLite: ' . $dir);
+        }
+    }
+
     public static function getPath(): string
     {
         $configuredPath = getenv('TCC_DB_SQLITE_PATH') ?: ($_ENV['TCC_DB_SQLITE_PATH'] ?? null);
 
         if ($configuredPath !== null && $configuredPath !== '') {
             $dir = dirname($configuredPath);
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0775, true);
-            }
+            self::ensureDirectory($dir);
 
             return $configuredPath;
         }
@@ -30,9 +39,7 @@ final class Database
 
         foreach ($candidates as $candidate) {
             $dir = dirname($candidate);
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0775, true);
-            }
+            self::ensureDirectory($dir);
             if (is_dir($dir) && is_writable($dir)) {
                 return $candidate;
             }

@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json');
-require_once '../auth.php';
-require_once '../db.php';
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../db.php';
 
 // Autenticar usuário - apenas administrador pode ver auditoria
 if (!tcc_is_authenticated()) {
