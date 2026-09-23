@@ -18,8 +18,8 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validador de Medicamentos - TCC</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <script src="assets/vendor/html5-qrcode/html5-qrcode.min.js" type="text/javascript"></script>
     <style>
         body { background-color: #f0f2f5; }
         .scanner-box { border: 2px dashed #198754; border-radius: 15px; overflow: hidden; background: #fff;}

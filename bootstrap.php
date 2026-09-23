@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-file_put_contents('/tmp/salvar_debug.log', date('c') . " ENTER root bootstrap.php\n", FILE_APPEND);
-
 const TCC_APP_ROOT = __DIR__;
 
 function tcc_load_env_file(string $filePath): void
@@ -105,6 +103,20 @@ function tcc_private_key_path(): string
     return tcc_keys_dir() . '/private.pem';
 }
 
+function tcc_sync_owner_with_storage_root(string $path): void
+{
+    $storageRoot = tcc_storage_root();
+    $owner = @fileowner($storageRoot);
+    $group = @filegroup($storageRoot);
+
+    if ($owner === false || $group === false) {
+        return;
+    }
+
+    @chown($path, $owner);
+    @chgrp($path, $group);
+}
+
 function tcc_keys_exist(): bool
 {
     return is_file(tcc_public_key_path()) && is_file(tcc_private_key_path());
@@ -116,4 +128,32 @@ function tcc_json_response(array $payload, int $statusCode = 200): void
     header('Content-Type: application/json; charset=UTF-8');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+function tcc_log_exception(Throwable $exception, string $context = ''): void
+{
+    $prefix = $context !== '' ? '[' . $context . '] ' : '';
+    error_log($prefix . $exception::class . ': ' . $exception->getMessage());
+}
+
+function tcc_is_api_request(): bool
+{
+    $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    if (str_contains($requestUri, '/api/')) {
+        return true;
+    }
+
+    $accept = (string) ($_SERVER['HTTP_ACCEPT'] ?? '');
+    return str_contains($accept, 'application/json');
+}
+
+function tcc_abort_internal_error(string $message = 'Erro interno.', int $statusCode = 500): void
+{
+    if (tcc_is_api_request()) {
+        tcc_json_response(['success' => false, 'message' => $message], $statusCode);
+    }
+
+    http_response_code($statusCode);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit($message);
 }

@@ -29,5 +29,5 @@ try {
     json_response(['success' => $result['success'], 'message' => $result['message']], $result['status']);
 } catch (\PDOException $e) {
     tcc_audit_validation($pdo, $id, 'erro_banco');
-    json_response(['success' => false, 'message' => 'Erro no banco: ' . $e->getMessage()], 500);
+    json_internal_error($e);
 }

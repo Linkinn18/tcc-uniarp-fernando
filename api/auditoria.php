@@ -64,7 +64,8 @@ try {
         'registros' => $rows,
     ]);
 } catch (\PDOException $e) {
+    tcc_log_exception($e, 'auditoria');
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Erro no banco: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Erro interno.']);
 }
 ?>

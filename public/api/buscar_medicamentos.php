@@ -40,5 +40,5 @@ try {
 
     json_response(['success' => true, 'data' => $rows]);
 } catch (\PDOException $e) {
-    json_response(['success' => false, 'message' => 'Erro no banco: ' . $e->getMessage()], 500);
+    json_internal_error($e);
 }

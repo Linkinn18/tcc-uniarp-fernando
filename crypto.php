@@ -54,6 +54,7 @@ function tcc_generate_key_pair(string $passphrase): array
 function tcc_store_key_pair(array $keyPair): void
 {
     tcc_ensure_directory(tcc_keys_dir(), 0700);
+    tcc_sync_owner_with_storage_root(tcc_keys_dir());
 
     if (file_put_contents(tcc_private_key_path(), $keyPair['private'], LOCK_EX) === false) {
         throw new RuntimeException('Falha ao gravar a chave privada.');
@@ -65,6 +66,8 @@ function tcc_store_key_pair(array $keyPair): void
 
     chmod(tcc_private_key_path(), 0600);
     chmod(tcc_public_key_path(), 0600);
+    tcc_sync_owner_with_storage_root(tcc_private_key_path());
+    tcc_sync_owner_with_storage_root(tcc_public_key_path());
 }
 
 function tcc_get_public_key(): string
