@@ -24,10 +24,122 @@ Projeto em PHP para emissão e validação de medicamentos com assinatura digita
 
 ```bash
 sudo apt update
-sudo apt install php php-cli php-openssl php-sqlite3 php-session apache2
+sudo apt install -y apache2 libapache2-mod-php php php-cli php-sqlite3 sqlite3 git curl unzip composer
 sudo a2enmod rewrite
 sudo systemctl restart apache2
 ```
+
+> **Importante**: `php-openssl` e `php-session` normalmente **não existem** como pacotes separados no Ubuntu/Debian. O suporte a OpenSSL e sessão já vem no pacote principal do PHP.
+
+### Passo a passo para outro computador/servidor Linux (Ubuntu/Debian)
+
+1. Instale Apache, PHP, SQLite, Git e Composer:
+
+```bash
+sudo apt update
+sudo apt install -y apache2 libapache2-mod-php php php-cli php-sqlite3 sqlite3 git curl unzip composer
+php -m | grep -E 'openssl|pdo_sqlite|sqlite3'
+```
+
+2. Clone o projeto no servidor:
+
+```bash
+cd /var/www
+sudo git clone https://github.com/Linkinn18/tcc-uniarp-fernando.git tcc
+cd /var/www/tcc
+```
+
+3. Ajuste permissões básicas do projeto:
+
+```bash
+sudo chown -R $USER:www-data /var/www/tcc
+sudo find /var/www/tcc -type d -exec chmod 775 {} \;
+sudo find /var/www/tcc -type f -exec chmod 664 {} \;
+```
+
+4. Instale o autoload do Composer:
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+5. Crie o diretório de storage fora da área pública:
+
+```bash
+sudo mkdir -p /var/lib/tcc-storage
+sudo chown -R $USER:www-data /var/lib/tcc-storage
+sudo chmod -R 770 /var/lib/tcc-storage
+```
+
+6. Crie o arquivo `.env` do projeto:
+
+```bash
+cp .env.example .env
+cat > .env <<'EOF'
+TCC_DB_SQLITE_PATH=/var/lib/tcc-storage/tcc.sqlite
+TCC_ADMIN_USER=fabricante
+TCC_ADMIN_PASSWORD=troque-esta-senha
+TCC_KEY_PASSPHRASE=troque-esta-passphrase
+TCC_STORAGE_PATH=/var/lib/tcc-storage
+EOF
+```
+
+7. Inicialize o banco SQLite:
+
+```bash
+php bin/setup_db.php
+```
+
+8. Gere o par de chaves RSA:
+
+```bash
+php bin/gerar_chaves.php
+setfacl -m u:www-data:r /var/lib/tcc-storage/keys/private.pem
+setfacl -m u:www-data:r /var/lib/tcc-storage/keys/public.pem
+```
+
+9. Crie o VirtualHost apontando para `public/`:
+
+```bash
+sudo tee /etc/apache2/sites-available/tcc.conf > /dev/null <<'EOF'
+<VirtualHost *:80>
+	ServerName tcc.local
+	DocumentRoot /var/www/tcc/public
+
+	<Directory /var/www/tcc/public>
+		AllowOverride All
+		Require all granted
+		DirectoryIndex index.php
+	</Directory>
+
+	ErrorLog ${APACHE_LOG_DIR}/tcc_error.log
+	CustomLog ${APACHE_LOG_DIR}/tcc_access.log combined
+</VirtualHost>
+EOF
+```
+
+10. Ative o site e recarregue o Apache:
+
+```bash
+sudo a2dissite 000-default.conf
+sudo a2ensite tcc.conf
+sudo a2enmod rewrite
+sudo systemctl reload apache2
+```
+
+11. Se quiser testar localmente pelo nome `tcc.local`, adicione no hosts:
+
+```bash
+echo '127.0.0.1 tcc.local' | sudo tee -a /etc/hosts
+```
+
+12. Acesse o sistema:
+
+```bash
+xdg-open http://tcc.local/login.php
+```
+
+Se o servidor não tiver ambiente gráfico, abra no navegador de outro computador usando `http://IP-DO-SERVIDOR/login.php` ou configurando o DNS para o `ServerName` escolhido.
 
 #### Linux (Fedora/RedHat)
 
