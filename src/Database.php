@@ -9,6 +9,38 @@ use PDOException;
 
 final class Database
 {
+    public static function getPath(): string
+    {
+        $configuredPath = getenv('TCC_DB_SQLITE_PATH') ?: ($_ENV['TCC_DB_SQLITE_PATH'] ?? null);
+
+        if ($configuredPath !== null && $configuredPath !== '') {
+            $dir = dirname($configuredPath);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+
+            return $configuredPath;
+        }
+
+        $candidates = [
+            __DIR__ . '/../../data/tcc.sqlite',
+            __DIR__ . '/../../sqlite/tcc.sqlite',
+            __DIR__ . '/../../tcc.sqlite',
+        ];
+
+        foreach ($candidates as $candidate) {
+            $dir = dirname($candidate);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            if (is_dir($dir) && is_writable($dir)) {
+                return $candidate;
+            }
+        }
+
+        return sys_get_temp_dir() . '/tcc.sqlite';
+    }
+
     public static function getPdo(): PDO
     {
         static $pdo = null;
@@ -16,34 +48,7 @@ final class Database
         if ($pdo instanceof PDO) {
             return $pdo;
         }
-
-        $configuredPath = getenv('TCC_DB_SQLITE_PATH') ?: ($_ENV['TCC_DB_SQLITE_PATH'] ?? null);
-
-        if ($configuredPath !== null && $configuredPath !== '') {
-            $path = $configuredPath;
-            $dir = dirname($path);
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0775, true);
-            }
-        } else {
-            $candidates = [
-                __DIR__ . '/../../data/tcc.sqlite',
-                __DIR__ . '/../../sqlite/tcc.sqlite',
-                __DIR__ . '/../../tcc.sqlite',
-            ];
-
-            $path = sys_get_temp_dir() . '/tcc.sqlite';
-            foreach ($candidates as $candidate) {
-                $dir = dirname($candidate);
-                if (!is_dir($dir)) {
-                    @mkdir($dir, 0775, true);
-                }
-                if (is_dir($dir) && is_writable($dir)) {
-                    $path = $candidate;
-                    break;
-                }
-            }
-        }
+        $path = self::getPath();
 
         $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -55,42 +60,21 @@ final class Database
             $pdo = new PDO('sqlite:' . $path, null, null, $options);
             $pdo->exec('PRAGMA foreign_keys = ON;');
 
-            // Ensure schema exists (idempotent)
-            $pdo->exec(
-                "CREATE TABLE IF NOT EXISTS medicamentos (
-                    id TEXT PRIMARY KEY,
-                    nome TEXT NOT NULL,
-                    lote TEXT NOT NULL,
-                    data_fabricacao TEXT NOT NULL,
-                    assinatura TEXT NOT NULL,
-                    status INTEGER DEFAULT 0,
-                    data_validacao TEXT
-                )"
-            );
-
-            $pdo->exec(
-                "CREATE TABLE IF NOT EXISTS usuarios (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )"
-            );
-
-            $pdo->exec(
-                "CREATE TABLE IF NOT EXISTS validacoes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    medicamento_id TEXT,
-                    resultado TEXT NOT NULL,
-                    data TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    ip_address TEXT,
-                    user_agent TEXT
-                )"
-            );
-
             return $pdo;
         } catch (PDOException $e) {
-            throw new PDOException('Falha na conexão com o banco de dados SQLite. Erro: ' . $e->getMessage(), (int)$e->getCode(), $e);
+            throw new PDOException('Falha na conexão com o banco de dados SQLite.', (int) $e->getCode(), $e);
         }
+    }
+
+    public static function initializeSchema(PDO $pdo, ?string $schemaPath = null): void
+    {
+        $schemaPath ??= dirname(__DIR__) . '/schema.sql';
+
+        $schema = file_get_contents($schemaPath);
+        if ($schema === false) {
+            throw new PDOException('Falha ao carregar o arquivo de schema.');
+        }
+
+        $pdo->exec($schema);
     }
 }

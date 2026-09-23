@@ -41,7 +41,7 @@ if ($userCount === 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login do Fabricante</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f6f9; }
         .login-card { max-width: 420px; margin: 8vh auto; border: 0; border-radius: 18px; }

@@ -56,8 +56,9 @@ sudo systemctl restart httpd
 1. Copie [.env.example](.env.example) para `.env`.
 2. Defina as credenciais do fabricante, a passphrase da chave e o caminho do banco SQLite.
 3. Configure um diretório de storage fora do web root em `TCC_STORAGE_PATH`.
-4. Gere as chaves com [bin/gerar_chaves.php](bin/gerar_chaves.php).
-5. Acesse [login.php](login.php).
+4. Inicialize o banco SQLite com [bin/setup_db.php](bin/setup_db.php).
+5. Gere as chaves com [bin/gerar_chaves.php](bin/gerar_chaves.php).
+6. Acesse [public/login.php](public/login.php) pela URL configurada no seu servidor web.
 
 ### Exemplo de `.env` (Linux/macOS)
 
@@ -97,7 +98,11 @@ TCC_STORAGE_PATH=C:\xampp\storage\tcc
 
 ## Banco de dados
 
-O projeto utiliza **SQLite** exclusivamente para máxima portabilidade. O banco é criado automaticamente no caminho definido por `TCC_DB_SQLITE_PATH`. O usuário inicial do fabricante é provisionado automaticamente a partir do `.env`.
+O projeto utiliza **SQLite** exclusivamente para máxima portabilidade. O arquivo de banco é aberto no caminho definido por `TCC_DB_SQLITE_PATH`, e o schema é inicializado explicitamente com `php bin/setup_db.php`. O usuário inicial do fabricante é provisionado automaticamente a partir do `.env`.
+
+## Assets frontend
+
+Os arquivos de terceiros do frontend ficam versionados em `public/assets/vendor/` para evitar dependência de CDN e permitir execução offline do projeto.
 
 ## Comandos úteis
 
@@ -107,6 +112,12 @@ Gerar chaves:
 
 ```bash
 php bin/gerar_chaves.php
+```
+
+Inicializar o banco SQLite:
+
+```bash
+php bin/setup_db.php
 ```
 
 Regenerar chaves (força):
@@ -129,6 +140,12 @@ Gerar chaves:
 php bin\gerar_chaves.php
 ```
 
+Inicializar o banco SQLite:
+
+```powershell
+php bin\setup_db.php
+```
+
 Regenerar chaves (força):
 
 ```powershell
@@ -147,18 +164,26 @@ $env:TCC_STORAGE_PATH="C:\xampp\storage\tcc-p03-demo"; php bin\demonstrar_p03.ph
 - Antes, você rodava o Apache local (XAMPP/LAMP) apontando o DocumentRoot para a raiz do projeto e acessava `http://localhost`. Com a reorganização, o conteúdo público foi movido para `tcc/public` — se preferir continuar usando o Apache do sistema, ajuste o DocumentRoot para `.../tcc/public`.
 - Composer fornece autoload PSR-4 (`App\\` → `src/`). Após `composer install`, carregue `vendor/autoload.php` em scripts CLI ou ao usar endpoints que dependem de classes `App\\`.
 
+## Rotas públicas
+
+- Página inicial: [public/index.php](public/index.php)
+- Login do fabricante: [public/login.php](public/login.php)
+- Painel do fabricante: [public/fabricante.php](public/fabricante.php)
+- Validador: [public/validador.php](public/validador.php)
+
 ## Arquivos principais
 
 - [auth.php](auth.php): autenticação, sessão e CSRF.
 - [bootstrap.php](bootstrap.php): leitura do `.env` e caminhos de storage.
 - [crypto.php](crypto.php): geração de chaves, assinatura e verificação da assinatura.
-- [db.php](db.php): conexão e criação automática das tabelas.
-- [fabricante.php](fabricante.php): área autenticada do fabricante.
-- [validador.php](validador.php): leitura do QR Code e envio de `id` e `sig`.
-- [api/salvar_medicamento.php](api/salvar_medicamento.php): emissão de medicamento no backend.
-- [api/validar_unicidade.php](api/validar_unicidade.php): verificação de assinatura e validação atômica de unicidade.
+- [db.php](db.php): conexão com SQLite e provisionamento do usuário inicial a partir do `.env`.
+- [public/fabricante.php](public/fabricante.php): área autenticada do fabricante.
+- [public/validador.php](public/validador.php): leitura do QR Code e envio de `id` e `sig`.
+- [public/api/salvar_medicamento.php](public/api/salvar_medicamento.php): emissão de medicamento no backend.
+- [public/api/validar_unicidade.php](public/api/validar_unicidade.php): verificação de assinatura e validação atômica de unicidade.
 - [api/setup_chaves.php](api/setup_chaves.php): endpoint desativado por segurança.
 - [bin/gerar_chaves.php](bin/gerar_chaves.php): geração segura das chaves.
+- [bin/setup_db.php](bin/setup_db.php): inicialização explícita do schema SQLite.
 - [bin/demonstrar_p03.php](bin/demonstrar_p03.php): demonstração prática da mitigação de corrida.
 
 ## Observações

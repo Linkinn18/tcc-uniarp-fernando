@@ -7,6 +7,7 @@ require_once __DIR__ . '/../crypto.php';
 tcc_require_authentication();
 
 $keysExist = tcc_keys_exist();
+$keysDirectoryExists = is_dir(tcc_keys_dir());
 $csrfToken = tcc_csrf_token();
 $username = tcc_authenticated_username();
 ?>
@@ -16,8 +17,8 @@ $username = tcc_authenticated_username();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel do Fabricante - TCC Medicamentos</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <script src="assets/vendor/qrcodejs/qrcode.min.js"></script>
     <style>
         body { background-color: #f8f9fa; }
         .card { border-radius: 15px; border: none; }
@@ -46,7 +47,11 @@ $username = tcc_authenticated_username();
                     <div class="card-body p-4">
                         <?php if (!$keysExist): ?>
                             <div class="alert alert-warning mb-0">
-                                As chaves seguras ainda não foram geradas. Execute <strong>php bin/gerar_chaves.php</strong> no servidor após configurar o arquivo <strong>.env</strong>.
+                                <?php if ($keysDirectoryExists): ?>
+                                    As chaves foram encontradas no storage, mas o processo web não tem acesso a elas. Gere novamente com <strong>php bin/gerar_chaves.php --force</strong> ou ajuste o owner de <strong><?= htmlspecialchars(tcc_keys_dir(), ENT_QUOTES, 'UTF-8') ?></strong> para o usuário do Apache.
+                                <?php else: ?>
+                                    As chaves seguras ainda não foram geradas. Execute <strong>php bin/gerar_chaves.php</strong> no servidor após configurar o arquivo <strong>.env</strong>.
+                                <?php endif; ?>
                             </div>
                         <?php else: ?>
                             <form id="medicamentoForm">

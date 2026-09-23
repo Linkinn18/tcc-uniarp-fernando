@@ -3,15 +3,18 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../bootstrap.php';
-file_put_contents('/tmp/salvar_debug.log', date('c') . " ENTER included bootstrap.php (from _bootstrap)\n", FILE_APPEND);
 require_once __DIR__ . '/../../db.php';
-file_put_contents('/tmp/salvar_debug.log', date('c') . " ENTER included db.php (from _bootstrap)\n", FILE_APPEND);
 require_once __DIR__ . '/../../auth.php';
-file_put_contents('/tmp/salvar_debug.log', date('c') . " ENTER included auth.php (from _bootstrap)\n", FILE_APPEND);
 
 function json_response(array $payload, int $status = 200): void
 {
     tcc_json_response($payload, $status);
+}
+
+function json_internal_error(\Throwable $exception, string $message = 'Erro interno.'): void
+{
+    tcc_log_exception($exception, 'api');
+    json_response(['success' => false, 'message' => $message], 500);
 }
 
 function read_json_body(): ?array
