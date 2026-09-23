@@ -41,7 +41,7 @@ $isAuthenticated = tcc_is_authenticated();
                 <button class="nav-link active" id="tab-home" type="button">Início</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-search" type="button">Pesquisar Lotes / Medicamentos</button>
+                <button class="nav-link" id="tab-search" type="button">Pesquisar Unidades / Medicamentos</button>
             </li>
         </ul>
 
@@ -78,8 +78,8 @@ $isAuthenticated = tcc_is_authenticated();
         <div id="search-panel" class="tab-panel" style="display:none;">
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-body">
-                    <h4 class="card-title">Pesquisar Lotes e Medicamentos</h4>
-                    <p class="text-muted">Busque por nome do medicamento e/ou número do lote. Clique em QR para ver o código gerado e o hash correspondente.</p>
+                    <h4 class="card-title">Pesquisar Unidades Emitidas</h4>
+                    <p class="text-muted">Busque por nome do medicamento e/ou número do lote informado no cadastro da unidade. Clique em QR para ver o código gerado e o hash correspondente.</p>
                     <form id="searchForm" class="row g-2 align-items-end">
                         <div class="col-md-5">
                             <label for="searchName" class="form-label">Nome do Medicamento</label>
@@ -104,7 +104,7 @@ $isAuthenticated = tcc_is_authenticated();
                             <tr>
                                 <th>Nome</th>
                                 <th>Lote</th>
-                                <th>Data</th>
+                                <th>Cadastro</th>
                                 <th>ID</th>
                                 <th>Hash SHA-256</th>
                                 <th>Status</th>
@@ -202,7 +202,7 @@ $isAuthenticated = tcc_is_authenticated();
                         <tr>
                             <td>${tccDom.escapeHtml(item.nome)}</td>
                             <td>${tccDom.escapeHtml(item.lote)}</td>
-                            <td>${tccDom.escapeHtml(item.data_fabricacao)}</td>
+                            <td>${tccDom.escapeHtml(item.criado_em)}</td>
                             <td><code title="${tccDom.escapeHtml(item.id)}">${tccDom.escapeHtml(idLabel)}</code></td>
                             <td><code title="${tccDom.escapeHtml(item.hash || '')}">${tccDom.escapeHtml(hashLabel)}</code></td>
                             <td>${tccDom.escapeHtml(item.status_text)}</td>
@@ -230,10 +230,11 @@ $isAuthenticated = tcc_is_authenticated();
             const sig = button.getAttribute('data-sig');
             const nome = button.getAttribute('data-nome');
             const lote = button.getAttribute('data-lote');
+            const qrPayload = tccQr.buildPayload({ id, sig });
 
             qrContainer.style.display = 'block';
             qrCodeHolder.innerHTML = '';
-            qrJson.textContent = JSON.stringify({ id, assinatura: sig, nome, lote }, null, 2);
+            qrJson.textContent = qrPayload;
 
             if (currentQr) {
                 try { currentQr.clear(); } catch(e) {}

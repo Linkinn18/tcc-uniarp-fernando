@@ -2,11 +2,14 @@ CREATE TABLE IF NOT EXISTS medicamentos (
     id TEXT PRIMARY KEY,
     nome TEXT NOT NULL,
     lote TEXT NOT NULL,
-    data_fabricacao TEXT NOT NULL,
+    criado_em TEXT NOT NULL,
     assinatura TEXT NOT NULL,
     status INTEGER NOT NULL DEFAULT 0,
     data_validacao TEXT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_medicamentos_nome ON medicamentos(nome);
+CREATE INDEX IF NOT EXISTS idx_medicamentos_lote ON medicamentos(lote);
 
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

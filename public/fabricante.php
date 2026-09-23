@@ -7,6 +7,7 @@ require_once __DIR__ . '/../crypto.php';
 tcc_require_authentication();
 
 $keysExist = tcc_keys_exist();
+$keysPresent = tcc_keys_present();
 $keysDirectoryExists = is_dir(tcc_keys_dir());
 $csrfToken = tcc_csrf_token();
 $username = tcc_authenticated_username();
@@ -42,12 +43,12 @@ $username = tcc_authenticated_username();
             <div class="col-md-6">
                 <div class="card shadow">
                     <div class="card-header bg-dark text-white p-3">
-                        <h5 class="mb-0">Cadastrar Lote de Medicamento</h5>
+                        <h5 class="mb-0">Cadastrar Unidade de Medicamento</h5>
                     </div>
                     <div class="card-body p-4">
                         <?php if (!$keysExist): ?>
                             <div class="alert alert-warning mb-0">
-                                <?php if ($keysDirectoryExists): ?>
+                                <?php if ($keysPresent || $keysDirectoryExists): ?>
                                     As chaves foram encontradas no storage, mas o processo web não tem acesso a elas. Gere novamente com <strong>php bin/gerar_chaves.php --force</strong> ou ajuste o owner de <strong><?= htmlspecialchars(tcc_keys_dir(), ENT_QUOTES, 'UTF-8') ?></strong> para o usuário do Apache.
                                 <?php else: ?>
                                     As chaves seguras ainda não foram geradas. Execute <strong>php bin/gerar_chaves.php</strong> no servidor após configurar o arquivo <strong>.env</strong>.
@@ -63,9 +64,10 @@ $username = tcc_authenticated_username();
                                 <div class="mb-3">
                                     <label class="form-label">Número do Lote</label>
                                     <input type="text" class="form-control" id="lote" required placeholder="Ex: LOTE-8902A">
+                                    <div class="form-text">O lote é um atributo informativo da unidade emitida neste protótipo.</div>
                                 </div>
                                 <button type="submit" class="btn btn-primary w-100 btn-lg mt-3" id="btn-gerar">
-                                    Gerar e Assinar Medicamento
+                                    Gerar e Assinar Unidade
                                 </button>
                             </form>
                         <?php endif; ?>
@@ -77,7 +79,7 @@ $username = tcc_authenticated_username();
                             <div class="qr-container shadow-sm">
                                 <div id="qrcode"></div>
                             </div>
-                            <p class="text-muted mt-2 small">Este QR Code contém o ID único e a assinatura digital do laboratório.</p>
+                            <p class="text-muted mt-2 small">Este QR Code contém o identificador da unidade e a assinatura digital em formato compacto com correção de erro nível M.</p>
                             <div class="d-flex justify-content-center gap-2">
                                 <button id="btn-download-qr" class="btn btn-outline-primary btn-sm">Baixar QR (PNG)</button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">Gerar Novo Medicamento</button>

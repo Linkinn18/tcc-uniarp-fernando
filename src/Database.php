@@ -25,6 +25,10 @@ final class Database
         $configuredPath = getenv('TCC_DB_SQLITE_PATH') ?: ($_ENV['TCC_DB_SQLITE_PATH'] ?? null);
 
         if ($configuredPath !== null && $configuredPath !== '') {
+            if (is_file($configuredPath)) {
+                return $configuredPath;
+            }
+
             $dir = dirname($configuredPath);
             self::ensureDirectory($dir);
 
@@ -36,6 +40,12 @@ final class Database
             __DIR__ . '/../../sqlite/tcc.sqlite',
             __DIR__ . '/../../tcc.sqlite',
         ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
 
         foreach ($candidates as $candidate) {
             $dir = dirname($candidate);
@@ -77,11 +87,39 @@ final class Database
     {
         $schemaPath ??= dirname(__DIR__) . '/schema.sql';
 
+        self::migrateMedicamentosSchema($pdo);
+
         $schema = file_get_contents($schemaPath);
         if ($schema === false) {
             throw new PDOException('Falha ao carregar o arquivo de schema.');
         }
 
         $pdo->exec($schema);
+    }
+
+    private static function migrateMedicamentosSchema(PDO $pdo): void
+    {
+        $tableExists = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'medicamentos'")?->fetchColumn();
+        if ($tableExists === false) {
+            return;
+        }
+
+        $columns = $pdo->query("PRAGMA table_info(medicamentos)")?->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $hasCriadoEm = false;
+        $hasDataFabricacao = false;
+
+        foreach ($columns as $column) {
+            $name = (string) ($column['name'] ?? '');
+            if ($name === 'criado_em') {
+                $hasCriadoEm = true;
+            }
+            if ($name === 'data_fabricacao') {
+                $hasDataFabricacao = true;
+            }
+        }
+
+        if (!$hasCriadoEm && $hasDataFabricacao) {
+            $pdo->exec('ALTER TABLE medicamentos RENAME COLUMN data_fabricacao TO criado_em');
+        }
     }
 }

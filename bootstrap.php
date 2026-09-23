@@ -124,6 +124,11 @@ function tcc_sync_owner_with_storage_root(string $path): void
 
 function tcc_keys_exist(): bool
 {
+    return tcc_keys_present() && is_readable(tcc_public_key_path()) && is_readable(tcc_private_key_path());
+}
+
+function tcc_keys_present(): bool
+{
     return is_file(tcc_public_key_path()) && is_file(tcc_private_key_path());
 }
 

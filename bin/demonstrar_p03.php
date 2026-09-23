@@ -76,7 +76,7 @@ function tcc_demo_seed_medicamento(PDO $pdo): array
 	$signature = tcc_sign_identifier($id);
 	$now = date('Y-m-d H:i:s');
 
-	$statement = $pdo->prepare('INSERT INTO medicamentos (id, nome, lote, data_fabricacao, assinatura, status) VALUES (?, ?, ?, ?, ?, 0)');
+	$statement = $pdo->prepare('INSERT INTO medicamentos (id, nome, lote, criado_em, assinatura, status) VALUES (?, ?, ?, ?, ?, 0)');
 	$statement->execute([$id, 'Medicamento Teste Concorrência', 'LOTE-P03', $now, $signature]);
 
 	return ['id' => $id, 'sig' => $signature];

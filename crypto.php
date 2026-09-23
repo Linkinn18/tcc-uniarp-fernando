@@ -72,8 +72,12 @@ function tcc_store_key_pair(array $keyPair): void
 
 function tcc_get_public_key(): string
 {
-    if (!tcc_keys_exist()) {
+    if (!tcc_keys_present()) {
         throw new RuntimeException('As chaves ainda não foram geradas.');
+    }
+
+    if (!is_readable(tcc_public_key_path())) {
+        throw new RuntimeException('A chave pública existe, mas o processo atual não tem permissão de leitura.');
     }
 
     $publicKey = file_get_contents(tcc_public_key_path());
@@ -86,8 +90,12 @@ function tcc_get_public_key(): string
 
 function tcc_sign_identifier_rsa(string $identifier): string
 {
-    if (!tcc_keys_exist()) {
+    if (!tcc_keys_present()) {
         throw new RuntimeException('As chaves ainda não foram geradas.');
+    }
+
+    if (!is_readable(tcc_private_key_path())) {
+        throw new RuntimeException('A chave privada existe, mas o processo atual não tem permissão de leitura.');
     }
 
     $privateKeyPem = file_get_contents(tcc_private_key_path());
