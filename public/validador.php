@@ -193,19 +193,20 @@ try {
                 throw error;
             }
 
-            const verificationKey = await getPublicKey();
-            const valid = await window.crypto.subtle.verify(
-                { name: 'RSASSA-PKCS1-v1_5' },
-                verificationKey,
-                base64ToArrayBuffer(data.sig),
-                new TextEncoder().encode(data.id)
-            );
+            if (window.crypto && window.crypto.subtle && typeof window.crypto.subtle.verify === 'function') {
+                const verificationKey = await getPublicKey();
+                const valid = await window.crypto.subtle.verify(
+                    { name: 'RSASSA-PKCS1-v1_5' },
+                    verificationKey,
+                    base64ToArrayBuffer(data.sig),
+                    new TextEncoder().encode(data.id)
+                );
 
-            if (!valid) {
-                throw new Error('Assinatura inválida. O medicamento não foi gerado por este sistema.');
+                if (!valid) {
+                    throw new Error('Assinatura inválida. O medicamento não foi gerado por este sistema.');
+                }
             }
 
-            // Send both id and signature to the server so it can re-verify before marking
             const response = await tccApi.postJson('api/validar_unicidade.php', { id: data.id, sig: data.sig });
             const result = response.json || { success: false, message: 'Resposta inválida' };
             if (result.success) {
@@ -306,7 +307,10 @@ try {
                 await handleDecodedText(decodedText);
             } catch (err) {
                 console.error(err);
-                showResult('danger', 'Falha ao ler a imagem', err.message || 'Não foi possível decodificar o QR Code da imagem.');
+                const message = err.message && err.message.includes('No MultiFormat Readers were able to detect the code.')
+                    ? 'Nenhum QR Code legível foi encontrado. Selecione o PNG original completo, sem recortar, redimensionar ou comprimir a imagem. Gere um novo arquivo se ele foi baixado antes desta correção.'
+                    : err.message || 'Não foi possível decodificar o QR Code da imagem.';
+                showResult('danger', 'Falha ao ler a imagem', message);
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 isProcessing = false;

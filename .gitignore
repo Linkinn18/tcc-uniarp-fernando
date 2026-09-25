@@ -1,6 +1,6 @@
 keys/
 storage/
 .env
-vendor/
+/vendor/
 node_modules/
 docs/alteracoes.md
