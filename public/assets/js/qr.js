@@ -32,41 +32,62 @@
 
             const qr = renderQr(tmp, data, { width: size, height: size });
 
-            // wait for rendering
-            requestAnimationFrame(() => {
+            const cleanup = () => {
+                tmp.remove();
+                if (qr && typeof qr.clear === 'function') {
+                    try { qr.clear(); } catch (error) {}
+                }
+            };
+
+            const rejectExport = (error) => {
+                cleanup();
+                reject(error);
+            };
+
+            const exportImage = (source) => {
                 try {
-                    let dataUrl = null;
-                    const img = tmp.querySelector('img');
-                    const canvas = tmp.querySelector('canvas');
-                    if (img && img.src) {
-                        dataUrl = img.src;
-                    } else if (canvas && canvas.toDataURL) {
-                        dataUrl = canvas.toDataURL('image/png');
+                    const quietZone = Math.ceil(size / 16);
+                    const output = document.createElement('canvas');
+                    output.width = size + quietZone * 2;
+                    output.height = size + quietZone * 2;
+
+                    const context = output.getContext('2d');
+                    if (!context) {
+                        throw new Error('Não foi possível preparar a imagem do QR.');
                     }
 
-                    if (!dataUrl) {
-                        // cleanup and reject
-                        tmp.remove();
-                        if (qr && typeof qr.clear === 'function') try { qr.clear(); } catch (e) {}
-                        return reject(new Error('Não foi possível gerar imagem do QR.'));
-                    }
+                    context.fillStyle = '#ffffff';
+                    context.fillRect(0, 0, output.width, output.height);
+                    context.drawImage(source, quietZone, quietZone, size, size);
 
                     const a = document.createElement('a');
-                    a.href = dataUrl;
+                    a.href = output.toDataURL('image/png');
                     a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
 
-                    // cleanup
-                    tmp.remove();
-                    if (qr && typeof qr.clear === 'function') try { qr.clear(); } catch (e) {}
+                    cleanup();
                     resolve(true);
-                } catch (err) {
-                    try { tmp.remove(); } catch (e) {}
-                    if (qr && typeof qr.clear === 'function') try { qr.clear(); } catch (e) {}
-                    reject(err);
+                } catch (error) {
+                    rejectExport(error);
                 }
+            };
+
+            requestAnimationFrame(() => {
+                const source = tmp.querySelector('canvas') || tmp.querySelector('img');
+                if (!source) {
+                    rejectExport(new Error('Não foi possível gerar imagem do QR.'));
+                    return;
+                }
+
+                if (source.tagName === 'IMG' && !source.complete) {
+                    source.onload = () => exportImage(source);
+                    source.onerror = () => rejectExport(new Error('Não foi possível carregar a imagem do QR.'));
+                    return;
+                }
+
+                exportImage(source);
             });
         });
     }

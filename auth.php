@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
-file_put_contents('/tmp/salvar_debug.log', date('c') . " ENTER auth.php\n", FILE_APPEND);
-
 function tcc_start_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
