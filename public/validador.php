@@ -22,8 +22,6 @@ try {
     <script src="assets/vendor/html5-qrcode/html5-qrcode.min.js" type="text/javascript"></script>
     <style>
         body { background-color: #f0f2f5; }
-        .scanner-box { border: 2px dashed #198754; border-radius: 15px; overflow: hidden; background: #fff;}
-        #reader { width: 100%; min-height: 300px; }
         .result-box { display: none; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px;}
         .result-box.success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
         .result-box.danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
@@ -42,24 +40,20 @@ try {
             <div class="col-md-6 col-lg-5">
                 <div class="text-center mb-4">
                     <h4>Verificação de Unicidade</h4>
-                    <p class="text-muted">Aponte a câmera para o QR Code da embalagem do medicamento.</p>
+                    <p class="text-muted">Selecione a imagem PNG ou JPG do QR Code para validar.</p>
                 </div>
 
                 <?php if ($keyError !== ''): ?>
                     <div class="alert alert-warning shadow-sm"><?= htmlspecialchars($keyError, ENT_QUOTES, 'UTF-8') ?> Execute <strong>php bin/gerar_chaves.php</strong> no servidor.</div>
                 <?php else: ?>
 
-                <div class="scanner-box shadow-sm mb-4">
-                    <div id="reader"></div>
-                </div>
-
                 <div class="mb-3">
-                    <label class="form-label">Validar por imagem</label>
+                    <label for="qrFileInput" class="form-label">Imagem do QR Code</label>
                     <div class="input-group">
-                        <input type="file" id="qrFileInput" accept="image/*" class="form-control" />
-                        <button type="button" id="btnValidateFile" class="btn btn-secondary">Validar imagem</button>
+                        <input type="file" id="qrFileInput" accept="image/png,image/jpeg" class="form-control" />
+                        <button type="button" id="btnValidateFile" class="btn btn-success">Validar imagem</button>
                     </div>
-                    <div class="form-text">Envie um arquivo PNG/JPG do QR Code quando não puder usar a câmera.</div>
+                    <div class="form-text">Use o PNG original baixado ou uma imagem nítida, completa e sem recortes.</div>
                 </div>
 
                 <div id="loading" class="text-center" style="display:none;">
@@ -70,7 +64,7 @@ try {
                 <div id="result-container" class="result-box shadow-sm">
                     <h3 id="result-title"></h3>
                     <p id="result-msg" class="mb-0"></p>
-                    <button class="btn btn-outline-dark mt-3 btn-sm" onclick="startScanner()">Escanear Outro</button>
+                    <button class="btn btn-outline-dark mt-3 btn-sm" type="button" onclick="resetFileSelection()">Selecionar outra imagem</button>
                 </div>
                 <?php endif; ?>
             </div>
@@ -84,10 +78,8 @@ try {
     <script src="assets/js/api.js"></script>
     <script>
         const PUBLIC_KEY_PEM = `<?php echo $publicKeyStr; ?>`;
-        let html5QrcodeScanner;
         let html5QrcodeFileScanner;
         let isProcessing = false;
-        let scanningActive = false;
         let cachedPublicKey;
 
         function pemToArrayBuffer(pem) {
@@ -216,37 +208,6 @@ try {
             }
         }
 
-        async function onScanSuccess(decodedText, decodedResult) {
-            if (isProcessing) return;
-            isProcessing = true;
-
-            if (scanningActive && html5QrcodeScanner) {
-                try {
-                    html5QrcodeScanner.pause(true);
-                } catch (e) {
-                    console.warn('Não foi possível pausar o scanner:', e);
-                }
-                scanningActive = false;
-            }
-
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('result-container').style.display = 'none';
-
-            try {
-                await handleDecodedText(decodedText);
-            } catch (err) {
-                console.error(err);
-                showResult('danger', '❌ Falsificação Detectada', err.message || "Não foi possível validar o código.");
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-                isProcessing = false;
-            }
-        }
-
-        function onScanFailure(error) {
-            return error;
-        }
-
         function showResult(type, title, message) {
             const container = document.getElementById('result-container');
             container.className = `result-box ${type}`;
@@ -255,28 +216,15 @@ try {
             container.style.display = 'block';
         }
 
-        async function startScanner() {
-            isProcessing = false;
+        function resetFileSelection() {
+            document.getElementById('qrFileInput').value = '';
             document.getElementById('result-container').style.display = 'none';
             document.getElementById('loading').style.display = 'none';
-
-            if (html5QrcodeScanner) {
-                if (!scanningActive) {
-                    html5QrcodeScanner.resume();
-                    scanningActive = true;
-                }
-            } else {
-                html5QrcodeScanner = new Html5QrcodeScanner(
-                    "reader",
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    false
-                );
-                html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-                scanningActive = true;
-            }
+            document.getElementById('qrFileInput').focus();
         }
 
         async function validateFileImage() {
+            if (isProcessing) return;
             const fileInput = document.getElementById('qrFileInput');
             const file = fileInput.files[0];
 
@@ -285,32 +233,34 @@ try {
                 return;
             }
 
-            if (scanningActive && html5QrcodeScanner) {
-                try {
-                    html5QrcodeScanner.pause(true);
-                } catch (error) {
-                    console.warn('Não foi possível pausar o scanner antes da leitura de arquivo:', error);
-                }
-                scanningActive = false;
-            }
-
+            isProcessing = true;
             document.getElementById('loading').style.display = 'block';
             document.getElementById('result-container').style.display = 'none';
 
+            let validationStage = 'decode';
             try {
                 if (!html5QrcodeFileScanner) {
                     html5QrcodeFileScanner = new Html5Qrcode('qr-file-reader');
                 }
 
-                const decodedText = await html5QrcodeFileScanner.scanFileV2(file, true);
+                const decodedText = await html5QrcodeFileScanner.scanFileV2(file, false);
+                validationStage = 'validate';
                 console.log('Texto decodificado da imagem:', decodedText);
                 await handleDecodedText(decodedText);
             } catch (err) {
                 console.error(err);
-                const message = err.message && err.message.includes('No MultiFormat Readers were able to detect the code.')
-                    ? 'Nenhum QR Code legível foi encontrado. Selecione o PNG original completo, sem recortar, redimensionar ou comprimir a imagem. Gere um novo arquivo se ele foi baixado antes desta correção.'
-                    : err.message || 'Não foi possível decodificar o QR Code da imagem.';
-                showResult('danger', 'Falha ao ler a imagem', message);
+                if (validationStage === 'decode') {
+                    const message = err.message && err.message.includes('No MultiFormat Readers were able to detect the code.')
+                        ? 'Nenhum QR Code legível foi encontrado. Selecione o PNG original completo, sem recortar, redimensionar ou comprimir a imagem. Gere um novo arquivo se ele foi baixado antes desta correção.'
+                        : err.message || 'Não foi possível decodificar o QR Code da imagem.';
+                    showResult('danger', 'QR Code não reconhecido', message);
+                } else if (err instanceof TypeError) {
+                    showResult('danger', 'Falha de conexão', 'Não foi possível contactar o servidor de validação. Verifique a conexão e tente novamente.');
+                } else if (err.message && err.message.includes('Assinatura inválida')) {
+                    showResult('danger', 'Assinatura inválida', err.message);
+                } else {
+                    showResult('danger', 'Falha na validação', err.message || 'Não foi possível validar este QR Code.');
+                }
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 isProcessing = false;
@@ -331,8 +281,9 @@ try {
         document.getElementById('btnValidateFile').addEventListener('click', validateFileImage);
 
         window.addEventListener('load', async () => {
-            const initialId = new URLSearchParams(window.location.search).get('i') || new URLSearchParams(window.location.search).get('id');
-            const initialSig = new URLSearchParams(window.location.search).get('s') || new URLSearchParams(window.location.search).get('sig');
+            const query = new URLSearchParams(window.location.search);
+            const initialId = query.get('i') || query.get('id');
+            const initialSig = query.get('s') || query.get('sig');
 
             if (initialId && initialSig) {
                 document.getElementById('loading').style.display = 'block';
@@ -344,10 +295,7 @@ try {
                 } finally {
                     document.getElementById('loading').style.display = 'none';
                 }
-                return;
             }
-
-            startScanner();
         });
     </script>
     <?php endif; ?>

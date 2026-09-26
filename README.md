@@ -6,8 +6,8 @@ Projeto em PHP para emissão e validação de medicamentos com assinatura digita
 
 - **Configuração:** `bootstrap.php` lê `.env`; `db.php` conecta ao SQLite e cria o usuário inicial quando `TCC_ADMIN_USER` e `TCC_ADMIN_PASSWORD` estão definidos e ainda não existe usuário.
 - **Emissão:** o fabricante autentica-se em `public/login.php`. `public/fabricante.php` envia nome e lote à API; o servidor gera UUID, assina-o com RSA-SHA256 e grava a unidade no SQLite.
-- **QR Code:** o conteúdo é compacto (`i=<UUID>&s=<assinatura-base64>`). A página permite exibir e baixar PNG; o PNG exportado inclui margem branca para os leitores.
-- **Validação:** `public/validador.php` lê QR pela câmera ou por imagem. Em contexto seguro, o navegador também confere a assinatura como feedback. A API `public/api/validar_unicidade.php` sempre verifica a assinatura no servidor antes de alterar o status.
+- **QR Code:** o conteúdo é compacto (`i=<UUID>&s=<assinatura-base64>`). A página permite exibir e baixar PNG em alta resolução (1024 px, além da margem branca externa).
+- **Validação:** `public/validador.php` aceita PNG/JPG enviado pelo usuário; não há leitura por câmera. Em contexto seguro, o navegador também confere a assinatura como feedback. A API `public/api/validar_unicidade.php` sempre verifica a assinatura no servidor antes de alterar o status.
 - **Unicidade:** a mudança de `status = 0` para `status = 1` é feita por um `UPDATE` condicional atômico; somente uma requisição concorrente pode consumir o identificador.
 - **Busca:** a página inicial oferece busca autenticada por nome/lote e exibição de QR para usuários autorizados.
 
@@ -245,9 +245,9 @@ ping -n 1 tcc.local
 
 Acesse `http://tcc.local:8080/login.php`. O VirtualHost seleciona o site pelo nome `tcc.local`; `http://localhost:8080/` aponta para o DocumentRoot padrão do XAMPP, não para este projeto.
 
-#### Firefox, Web Crypto e câmera
+#### Firefox e Web Crypto
 
-Firefox só disponibiliza `crypto.subtle` e acesso à câmera em contextos seguros. O domínio `tcc.local` em HTTP não é considerado seguro. Para desenvolvimento local, os VirtualHosts acima também declaram `ServerAlias tcc.localhost`; acesse `http://tcc.localhost:8080/login.php` no XAMPP ou `http://tcc.localhost/login.php` no Linux (ajuste a porta se necessário). O sufixo especial `.localhost` resolve para a própria máquina e é tratado como contexto seguro pelo Firefox, sem precisar adicionar outra entrada ao arquivo `hosts`. Conceda permissão de câmera quando solicitada.
+Firefox só disponibiliza `crypto.subtle` em contextos seguros. O domínio `tcc.local` em HTTP não é considerado seguro. Para desenvolvimento local, os VirtualHosts acima também declaram `ServerAlias tcc.localhost`; acesse `http://tcc.localhost:8080/login.php` no XAMPP ou `http://tcc.localhost/login.php` no Linux (ajuste a porta se necessário). O sufixo especial `.localhost` resolve para a própria máquina e é tratado como contexto seguro pelo Firefox, sem precisar adicionar outra entrada ao arquivo `hosts`. O validador usa upload de imagem e não solicita permissão de câmera.
 
 Se continuar usando `tcc.local` por HTTP, a validação criptográfica local pode não estar disponível, mas o validador envia o identificador e a assinatura ao servidor, que sempre verifica a assinatura antes de aceitar ou marcar o código. Em produção, use HTTPS.
 
@@ -330,7 +330,7 @@ Rotas principais:
 - `GET /` ou `/index.php`: início e busca de unidades (a API de busca requer autenticação).
 - `GET/POST /login.php`: autenticação do fabricante.
 - `/fabricante.php`: emissão de unidade e geração do QR, somente autenticado.
-- `/validador.php`: leitura de QR pela câmera ou upload de imagem.
+- `/validador.php`: leitura e validação de QR a partir de upload PNG/JPG; não usa câmera.
 - `POST /api/salvar_medicamento.php`: emissão autenticada, com token CSRF.
 - `GET /api/buscar_medicamentos.php`: busca autenticada.
 - `POST /api/validar_unicidade.php`: revalidação da assinatura e consumo atômico do código.
@@ -344,13 +344,13 @@ Os arquivos de terceiros do frontend ficam versionados em `public/assets/vendor/
 - `public/assets/vendor/` contém os arquivos fixos do frontend usados pela interface, como Bootstrap, `html5-qrcode` e `qrcodejs`.
 - A pasta `vendor/` da raiz é diferente: ela é gerada pelo Composer para dependências PHP de desenvolvimento e continua ignorada pelo Git.
 - Se algum CSS ou JS não carregar no navegador, confirme que os arquivos existem em `public/assets/vendor/` e que a URL está sendo servida pelo VirtualHost correto (`http://tcc.local:8080/`).
-- O QR exportado inclui uma margem branca externa para melhorar a leitura por câmera e por imagem. Windows e Linux usam o mesmo código JavaScript no navegador; gere novamente os PNGs antigos para receber essa margem.
+- O QR exportado é gerado em 1024 px e inclui uma margem branca externa (quiet zone) para leitura pela imagem. Windows e Linux usam o mesmo código JavaScript no navegador; baixe novamente PNGs antigos para receber a resolução e a margem atualizadas.
 - Para conferir os assets no Linux, use a URL e a porta configuradas no Apache (por exemplo, `curl -I http://tcc.local/assets/vendor/bootstrap/bootstrap.min.css`); a resposta esperada é `200 OK`. No XAMPP deste projeto, use `http://tcc.local:8080/`.
 
 ## Segurança e limitações conhecidas
 
 - A chave privada RSA-2048 é cifrada com `TCC_KEY_PASSPHRASE` e fica fora de `public/`; o navegador recebe somente a chave pública e a assinatura do QR. A geração de chaves é feita por CLI.
-- Em origens HTTP como `tcc.local`, Firefox pode desabilitar Web Crypto/câmera. O servidor ainda verifica a assinatura; para contexto seguro local use o alias `tcc.localhost` ou configure HTTPS.
+- Em origens HTTP como `tcc.local`, Firefox pode desabilitar Web Crypto. O servidor ainda verifica a assinatura; para habilitar também a conferência local use o alias `tcc.localhost` ou configure HTTPS.
 - O protótipo consome o código na primeira validação. Leituras legítimas posteriores também podem gerar alerta; validação por etapa/perfil ainda não existe.
 - A tabela `validacoes` está no schema, mas o helper de auditoria é no-op: tentativas de sucesso/falha ainda não são persistidas.
 - O modelo não possui entidades próprias de fabricante e lote nem data de validade do medicamento; lote é texto associado a cada unidade.
