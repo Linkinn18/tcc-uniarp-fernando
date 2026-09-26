@@ -247,7 +247,7 @@ $isAuthenticated = tcc_is_authenticated();
             if (dlBtn) {
                 dlBtn.onclick = () => {
                     const filename = `tcc-qr-${id}.png`;
-                    tccQr.downloadQr(qrCodeHolder, { id, sig }, filename, 512).catch(err => console.error(err));
+                    tccQr.downloadQr(qrCodeHolder, { id, sig }, filename, 1024).catch(err => console.error(err));
                 };
             }
         });

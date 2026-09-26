@@ -130,7 +130,7 @@ $username = tcc_authenticated_username();
                         if (dlBtn) {
                             dlBtn.addEventListener('click', () => {
                                 const filename = `tcc-qr-${qrData.id}.png`;
-                                tccQr.downloadQr(document.getElementById('qrcode'), qrData, filename, 512).catch(err => console.error(err));
+                                tccQr.downloadQr(document.getElementById('qrcode'), qrData, filename, 1024).catch(err => console.error(err));
                             });
                         }
 

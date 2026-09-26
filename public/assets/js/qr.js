@@ -19,7 +19,7 @@
         return new QRCode(element, Object.assign({ text: payloadText, width: 256, height: 256, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }, options));
     }
 
-    function downloadQr(element, data, filename = 'tcc-qr.png', size = 512) {
+    function downloadQr(element, data, filename = 'tcc-qr.png', size = 1024) {
         if (!data) return Promise.reject(new Error('No QR data'));
 
         return new Promise((resolve, reject) => {
