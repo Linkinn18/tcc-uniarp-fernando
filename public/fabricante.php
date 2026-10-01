@@ -19,26 +19,46 @@ $username = tcc_authenticated_username();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel do Fabricante - TCC Medicamentos</title>
     <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <script src="assets/vendor/qrcodejs/qrcode.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; }
-        .card { border-radius: 15px; border: none; }
         .qr-container { display: flex; justify-content: center; align-items: center; padding: 20px; background: white; border-radius: 10px; margin-top: 20px;}
     </style>
 </head>
-<body>
-    <nav class="navbar navbar-dark bg-primary shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">⬅ Voltar ao Início</a>
-            <div class="d-flex align-items-center gap-3 text-white">
-                <span class="navbar-text text-white fw-bold">Módulo do Fabricante</span>
-                <span class="small">Usuário: <?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?></span>
-                <a href="logout.php" class="btn btn-sm btn-outline-light">Sair</a>
+<body class="app-page">
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <div class="brand-mark">
+            <div class="brand-symbol">T</div>
+            <div>
+                <p class="brand-title">TCC Medicamentos</p>
+                <p class="brand-subtitle">Autenticidade e unicidade</p>
             </div>
         </div>
-    </nav>
+        <p class="sidebar-label">Módulos</p>
+        <nav class="sidebar-nav" aria-label="Navegação principal">
+            <a class="sidebar-link" href="index.php"><span class="sidebar-icon">⌂</span><span>Início</span></a>
+            <a class="sidebar-link active" href="fabricante.php"><span class="sidebar-icon">＋</span><span>Cadastrar Lote</span></a>
+            <a class="sidebar-link" href="index.php?tab=search"><span class="sidebar-icon">⌕</span><span>Pesquisar</span></a>
+            <a class="sidebar-link" href="validador.php"><span class="sidebar-icon">✓</span><span>Validar Lotes</span></a>
+            <a class="sidebar-link" href="logout.php"><span class="sidebar-icon">↪</span><span>Sair</span></a>
+        </nav>
+        <div class="sidebar-footer">
+            Usuário: <?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?><br>
+            <a class="link-light" href="logout.php">Sair</a>
+        </div>
+    </aside>
 
-    <div class="container mt-5">
+    <main class="app-main">
+        <header class="page-header">
+            <div>
+                <p class="eyebrow">Emissão segura</p>
+                <h1 class="page-title">Cadastrar lote</h1>
+                <p class="page-intro">Gere uma unidade assinada digitalmente e baixe o QR Code correspondente.</p>
+            </div>
+        </header>
+
+    <div class="module-panel">
         <div class="row justify-content-center">
             <div class="col-md-6">
                 <div class="card shadow">
@@ -90,6 +110,8 @@ $username = tcc_authenticated_username();
             </div>
         </div>
     </div>
+    </main>
+</div>
 
     <?php if ($keysExist): ?>
     <script src="assets/js/dom.js"></script>
