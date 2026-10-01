@@ -12,93 +12,135 @@ $isAuthenticated = tcc_is_authenticated();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TCC Medicamentos</title>
+    <title>PROJETO</title>
     <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; }
-        .hero { padding: 80px 0; background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%); color: white; border-radius: 0 0 30px 30px; margin-bottom: 40px; }
+        :root {
+            --ink: #17212b;
+            --muted: #6b7785;
+            --line: #dce3e8;
+            --surface: #ffffff;
+            --wash: #f2f5f7;
+            --accent: #0f766e;
+            --accent-soft: #dff3ef;
+        }
+
+        body { min-height: 100vh; background: var(--wash); color: var(--ink); }
+        .app-shell { display: flex; min-height: 100vh; }
+        .app-sidebar { width: 264px; flex: 0 0 264px; padding: 28px 18px; background: #16232d; color: #fff; }
+        .brand-mark { display: flex; align-items: center; gap: 12px; margin: 0 10px 38px; }
+        .brand-symbol { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--accent); font-weight: 700; }
+        .brand-title { margin: 0; font-size: 1rem; letter-spacing: .02em; }
+        .brand-subtitle { margin: 3px 0 0; color: #aebbc4; font-size: .76rem; }
+        .sidebar-label { margin: 0 12px 10px; color: #82909a; font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        .sidebar-nav { display: grid; gap: 6px; }
+        .sidebar-link { display: flex; align-items: center; gap: 11px; width: 100%; padding: 12px; border: 0; border-radius: 8px; color: #dce5ea; background: transparent; text-align: left; text-decoration: none; }
+        .sidebar-link:hover, .sidebar-link.active { color: #fff; background: #263943; }
+        .sidebar-icon { width: 20px; color: #8ed6ca; text-align: center; }
+        .sidebar-footer { margin: 42px 10px 0; padding-top: 18px; border-top: 1px solid #30414b; color: #aebbc4; font-size: .78rem; line-height: 1.5; }
+        .app-main { flex: 1; min-width: 0; padding: 34px clamp(20px, 5vw, 64px); }
+        .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+        .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: .76rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        .page-title { margin: 0; font-size: clamp(1.7rem, 3vw, 2.45rem); letter-spacing: -.02em; }
+        .page-intro { max-width: 620px; margin: 8px 0 0; color: var(--muted); }
+        .content-panel { padding: clamp(22px, 4vw, 38px); border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 30px rgba(22, 35, 45, .06); }
+        .welcome-panel { min-height: 330px; display: grid; align-content: center; }
+        .welcome-panel h2 { max-width: 620px; margin-bottom: 12px; font-size: clamp(1.5rem, 3vw, 2.2rem); }
+        .welcome-panel p { max-width: 650px; color: var(--muted); }
+        .status-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 26px; padding: 14px 16px; border-left: 3px solid #d59b27; background: #fff8e7; color: #6c511a; }
+        .search-panel { display: none; }
+        .search-panel.is-visible { display: block; }
+        .search-heading { margin-bottom: 22px; }
+        .search-heading h2 { margin-bottom: 6px; font-size: 1.35rem; }
+        .search-heading p { margin: 0; color: var(--muted); }
+        .table-wrap { overflow-x: auto; }
+        .qr-container { min-height: 280px; display: grid; place-items: center; border: 1px solid var(--line); }
+        @media (max-width: 760px) {
+            .app-shell { display: block; }
+            .app-sidebar { width: auto; padding: 18px 16px; }
+            .brand-mark { margin-bottom: 20px; }
+            .sidebar-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .sidebar-footer { display: none; }
+            .app-main { padding: 26px 16px; }
+            .page-header { display: block; }
+        }
     </style>
 </head>
 <body>
-
-<div class="hero text-center shadow">
-    <div class="container">
-        <h1 class="display-4 fw-bold">Sistema Criptográfico de Medicamentos</h1>
-        <p class="lead">Autenticação e Verificação de Unicidade (TCC Fernando Willrich)</p>
-    </div>
-</div>
-
-<div class="container">
-            <?php if (!$keys_exist): ?>
-        <div class="alert alert-warning text-center shadow-sm">
-            <h4>Atenção!</h4>
-            <p>O par de chaves seguro ainda não foi gerado. Configure o arquivo <strong>.env</strong> e execute o script de linha de comando no servidor.</p>
-            <a href="gerar_chaves.html" class="btn btn-warning fw-bold">Ver instruções de geração</a>
-        </div>
-    <?php else: ?>
-        <ul class="nav nav-pills nav-justified mb-4" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-home" type="button">Início</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-search" type="button">Pesquisar Unidades / Medicamentos</button>
-            </li>
-        </ul>
-
-        <div id="home-panel" class="tab-panel">
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body text-center p-5">
-                            <div class="mb-4">
-                                <span style="font-size: 3rem;">🏭</span>
-                            </div>
-                            <h3 class="card-title">Módulo do Fabricante</h3>
-                            <p class="card-text text-muted">Acesse a área autenticada do laboratório para emitir novos medicamentos e gerar QR Codes com assinatura digital no servidor.</p>
-                            <a href="fabricante.php" class="btn btn-primary btn-lg w-100 mt-3"><?= $isAuthenticated ? 'Abrir Painel do Fabricante' : 'Entrar como Fabricante' ?></a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body text-center p-5">
-                            <div class="mb-4">
-                                <span style="font-size: 3rem;">📱</span>
-                            </div>
-                            <h3 class="card-title">Aplicativo Validador</h3>
-                            <p class="card-text text-muted">Simulação do aplicativo usado por hospitais e consumidores para ler o QR Code, validar a criptografia e garantir que o código é único.</p>
-                            <a href="validador.php" class="btn btn-success btn-lg w-100 mt-3">Abrir Validador</a>
-                        </div>
-                    </div>
-                </div>
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <div class="brand-mark">
+            <div class="brand-symbol">T</div>
+            <div>
+                <p class="brand-title">Projeto TCC</p>
             </div>
         </div>
+        <p class="sidebar-label">Módulos</p>
+        <nav class="sidebar-nav" aria-label="Navegação principal">
+            <button class="sidebar-link active" id="tab-home" type="button"><span class="sidebar-icon">⌂</span><span>Início</span></button>
+            <a class="sidebar-link" href="fabricante.php"><span class="sidebar-icon">＋</span><span>Cadastrar Lote</span></a>
+            <button class="sidebar-link" id="tab-search" type="button"><span class="sidebar-icon">⌕</span><span>Pesquisar</span></button>
+            <a class="sidebar-link" href="validador.php"><span class="sidebar-icon">✓</span><span>Validar Lotes</span></a>
+            <?php if ($isAuthenticated): ?>
+                <a class="sidebar-link" href="logout.php"><span class="sidebar-icon">↪</span><span>Sair</span></a>
+            <?php else: ?>
+                <a class="sidebar-link" href="login.php"><span class="sidebar-icon">→</span><span>Login</span></a>
+            <?php endif; ?>
+        </nav>
+        <div class="sidebar-footer">
+            <?php if ($isAuthenticated): ?>
+                Fabricante autenticado.
+            <?php else: ?>
+                A emissão de lotes requer autenticação.
+            <?php endif; ?>
+        </div>
+    </aside>
 
-        <div id="search-panel" class="tab-panel" style="display:none;">
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-body">
-                    <h4 class="card-title">Pesquisar Unidades Emitidas</h4>
-                    <p class="text-muted">Busque por nome do medicamento e/ou número do lote informado no cadastro da unidade. Clique em QR para ver o código gerado e o hash correspondente.</p>
-                    <form id="searchForm" class="row g-2 align-items-end">
-                        <div class="col-md-5">
-                            <label for="searchName" class="form-label">Nome do Medicamento</label>
-                            <input type="search" id="searchName" class="form-control" placeholder="Ex: Omeprazol">
-                        </div>
-                        <div class="col-md-5">
-                            <label for="searchLote" class="form-label">Número do Lote</label>
-                            <input type="search" id="searchLote" class="form-control" placeholder="Ex: LOTE-8902A">
-                        </div>
-                        <div class="col-md-2 d-grid">
-                            <button type="submit" class="btn btn-outline-primary">Pesquisar</button>
-                        </div>
-                    </form>
-                    <div id="searchMessage" class="mt-3"></div>
-                </div>
+    <main class="app-main">
+        <!--
+        <header class="page-header">
+            <div>
+                <p class="eyebrow">Painel operacional</p>
+                <h1 class="page-title">Sistema de medicamentos</h1>
+                <p class="page-intro">Escolha uma operação no menu lateral para cadastrar, pesquisar ou validar lotes.</p>
             </div>
+        </header>
+        -->
+        <?php if (!$keys_exist): ?>
+            <div class="status-note" role="status">
+                <strong>Atenção:</strong>
+                <span>O par de chaves seguro ainda não foi gerado. Configure o arquivo <strong>.env</strong> e execute o script de linha de comando.</span>
+            </div>
+        <?php endif; ?>
+
+        <section id="home-panel" class="content-panel welcome-panel" aria-labelledby="home-title">
+            <p class="eyebrow">Visão geral</p>
+        </section>
+
+        <section id="search-panel" class="content-panel search-panel" aria-labelledby="search-title">
+            <div class="search-heading">
+                <p class="eyebrow">Consulta</p>
+                <h2 id="search-title">Pesquisar lotes gerados</h2>
+                <p>Busque por nome do medicamento e/ou número do lote. A pesquisa exige autenticação.</p>
+            </div>
+            <form id="searchForm" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label for="searchName" class="form-label">Nome do Medicamento</label>
+                    <input type="search" id="searchName" class="form-control" placeholder="Ex: Omeprazol">
+                </div>
+                <div class="col-md-5">
+                    <label for="searchLote" class="form-label">Número do Lote</label>
+                    <input type="search" id="searchLote" class="form-control" placeholder="Ex: LOTE-8902A">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-success">Pesquisar</button>
+                </div>
+            </form>
+            <div id="searchMessage" class="mt-3"></div>
 
             <div id="resultsSection" style="display:none;">
-                <div class="table-responsive shadow-sm rounded bg-white">
+                <div class="table-wrap">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
@@ -116,19 +158,16 @@ $isAuthenticated = tcc_is_authenticated();
                 </div>
             </div>
 
-                <div id="qrContainer" class="card shadow-sm border-0 mt-4" style="display:none;">
-                <div class="card-body">
-                    <h5 class="card-title">QR Code do Registro</h5>
-                    <div class="qr-container shadow-sm p-4 bg-white rounded" id="qrCodeHolder"></div>
-                    <div class="d-flex gap-2 mt-3">
-                        <button id="btn-download-qr" class="btn btn-sm btn-outline-primary">Baixar QR (PNG)</button>
-                        <div class="flex-fill"></div>
-                    </div>
-                    <pre id="qrJson" class="mt-3 p-3 bg-light rounded"></pre>
+            <div id="qrContainer" class="mt-4" style="display:none;">
+                <h3 class="h5">QR Code do Registro</h3>
+                <div class="qr-container p-4 bg-white rounded" id="qrCodeHolder"></div>
+                <div class="d-flex gap-2 mt-3">
+                    <button id="btn-download-qr" class="btn btn-sm btn-outline-success">Baixar QR (PNG)</button>
                 </div>
+                <pre id="qrJson" class="mt-3 p-3 bg-light rounded"></pre>
             </div>
-        </div>
-    <?php endif; ?>
+        </section>
+    </main>
 </div>
 
 <script src="assets/vendor/bootstrap/bootstrap.bundle.min.js"></script>
@@ -168,6 +207,9 @@ $isAuthenticated = tcc_is_authenticated();
 
         homeTab.addEventListener('click', () => setActiveTab('home'));
         searchTab.addEventListener('click', () => setActiveTab('search'));
+
+        const initialTab = new URLSearchParams(window.location.search).get('tab');
+        setActiveTab(initialTab === 'search' ? 'search' : 'home');
 
         async function loadResults(nome = '', lote = '') {
             const query = new URLSearchParams();

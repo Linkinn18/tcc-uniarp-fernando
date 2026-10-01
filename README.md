@@ -22,134 +22,6 @@ O sistema é uma aplicação web PHP responsiva; não existe aplicativo nativo p
 
 ### Instalação rápida
 
-#### Linux (Ubuntu/Debian)
-
-```bash
-sudo apt update
-sudo apt install -y apache2 libapache2-mod-php php php-cli php-sqlite3 sqlite3 git curl unzip composer
-sudo a2enmod rewrite
-sudo systemctl restart apache2
-```
-
-> **Importante**: `php-openssl` e `php-session` normalmente **não existem** como pacotes separados no Ubuntu/Debian. O suporte a OpenSSL e sessão já vem no pacote principal do PHP.
-
-### Passo a passo para outro computador/servidor Linux (Ubuntu/Debian)
-
-1. Instale Apache, PHP, SQLite, Git e Composer:
-
-```bash
-sudo apt update
-sudo apt install -y apache2 libapache2-mod-php php php-cli php-sqlite3 sqlite3 git curl unzip composer
-php -m | grep -E 'openssl|pdo_sqlite|sqlite3'
-```
-
-2. Clone o projeto no servidor:
-
-```bash
-cd /var/www
-sudo git clone https://github.com/Linkinn18/tcc-uniarp-fernando.git tcc
-cd /var/www/tcc
-```
-
-3. Ajuste permissões básicas do projeto:
-
-```bash
-sudo chown -R $USER:www-data /var/www/tcc
-sudo find /var/www/tcc -type d -exec chmod 775 {} \;
-sudo find /var/www/tcc -type f -exec chmod 664 {} \;
-```
-
-4. Opcional: instale as ferramentas de desenvolvimento com Composer. O autoload local do projeto permite executar o sistema sem esta etapa:
-
-```bash
-composer install
-```
-
-5. Crie o diretório de storage fora da área pública:
-
-```bash
-sudo mkdir -p /var/lib/tcc-storage
-sudo chown -R $USER:www-data /var/lib/tcc-storage
-sudo chmod -R 770 /var/lib/tcc-storage
-```
-
-6. Crie o arquivo `.env` do projeto:
-
-```bash
-cat > .env <<'EOF'
-TCC_DB_SQLITE_PATH=/var/lib/tcc-storage/tcc.sqlite
-TCC_ADMIN_USER=fabricante
-TCC_ADMIN_PASSWORD=troque-esta-senha
-TCC_KEY_PASSPHRASE=troque-esta-passphrase
-TCC_STORAGE_PATH=/var/lib/tcc-storage
-EOF
-```
-
-7. Inicialize o banco SQLite:
-
-```bash
-php bin/setup_db.php
-```
-
-8. Gere o par de chaves RSA:
-
-```bash
-php bin/gerar_chaves.php
-setfacl -m u:www-data:r /var/lib/tcc-storage/keys/private.pem
-setfacl -m u:www-data:r /var/lib/tcc-storage/keys/public.pem
-```
-
-9. Crie o VirtualHost apontando para `public/`:
-
-```bash
-sudo tee /etc/apache2/sites-available/tcc.conf > /dev/null <<'EOF'
-<VirtualHost *:80>
-	ServerName tcc.local
-	ServerAlias tcc.localhost
-	DocumentRoot /var/www/tcc/public
-
-	<Directory /var/www/tcc/public>
-		AllowOverride All
-		Require all granted
-		DirectoryIndex index.php
-	</Directory>
-
-	ErrorLog ${APACHE_LOG_DIR}/tcc_error.log
-	CustomLog ${APACHE_LOG_DIR}/tcc_access.log combined
-</VirtualHost>
-EOF
-```
-
-10. Ative o site e recarregue o Apache:
-
-```bash
-sudo a2dissite 000-default.conf
-sudo a2ensite tcc.conf
-sudo a2enmod rewrite
-sudo systemctl reload apache2
-```
-
-11. Se quiser testar localmente pelo nome `tcc.local`, adicione no hosts:
-
-```bash
-echo '127.0.0.1 tcc.local' | sudo tee -a /etc/hosts
-```
-
-12. Acesse o sistema:
-
-```bash
-xdg-open http://tcc.local/login.php
-```
-
-Se o servidor não tiver ambiente gráfico, abra no navegador de outro computador usando `http://IP-DO-SERVIDOR/login.php` ou configurando o DNS para o `ServerName` escolhido.
-
-#### Linux (Fedora/RedHat)
-
-```bash
-sudo dnf install php php-cli php-openssl php-pdo php-pdo_sqlite httpd
-sudo systemctl restart httpd
-```
-
 #### Windows
 
 ### Passo a passo completo no Windows (XAMPP)
@@ -201,7 +73,7 @@ O sistema em produção/local não depende mais do `vendor/autoload.php` do Comp
 
 ##### VirtualHost no XAMPP
 
-Os caminhos `/etc/apache2/sites-available` e `/var/www` usados no exemplo Linux não se aplicam ao XAMPP. No Windows, confirme em `C:\xampp\apache\conf\httpd.conf` que a inclusão abaixo está ativa (sem `#`):
+No Windows, confirme em `C:\xampp\apache\conf\httpd.conf` que a inclusão abaixo está ativa (sem `#`):
 
 ```apache
 Include conf/extra/httpd-vhosts.conf
@@ -247,7 +119,7 @@ Acesse `http://tcc.local:8080/login.php`. O VirtualHost seleciona o site pelo no
 
 #### Firefox e Web Crypto
 
-Firefox só disponibiliza `crypto.subtle` em contextos seguros. O domínio `tcc.local` em HTTP não é considerado seguro. Para desenvolvimento local, os VirtualHosts acima também declaram `ServerAlias tcc.localhost`; acesse `http://tcc.localhost:8080/login.php` no XAMPP ou `http://tcc.localhost/login.php` no Linux (ajuste a porta se necessário). O sufixo especial `.localhost` resolve para a própria máquina e é tratado como contexto seguro pelo Firefox, sem precisar adicionar outra entrada ao arquivo `hosts`. O validador usa upload de imagem e não solicita permissão de câmera.
+Firefox só disponibiliza `crypto.subtle` em contextos seguros. O domínio `tcc.local` em HTTP não é considerado seguro. Para desenvolvimento local, o VirtualHost também declara `ServerAlias tcc.localhost`; acesse `http://tcc.localhost:8080/login.php`. O sufixo especial `.localhost` resolve para a própria máquina e é tratado como contexto seguro pelo Firefox, sem precisar adicionar outra entrada ao arquivo `hosts`. O validador usa upload de imagem e não solicita permissão de câmera.
 
 Se continuar usando `tcc.local` por HTTP, a validação criptográfica local pode não estar disponível, mas o validador envia o identificador e a assinatura ao servidor, que sempre verifica a assinatura antes de aceitar ou marcar o código. Em produção, use HTTPS.
 
@@ -262,26 +134,9 @@ Se continuar usando `tcc.local` por HTTP, a validação criptográfica local pod
 
 ## Configuração
 
-Crie `.env` na raiz do projeto (não versione esse arquivo). Configure os caminhos do banco/storage, usuário e senha iniciais do fabricante e a passphrase da chave privada. Os exemplos completos para Linux/macOS e Windows estão abaixo. O arquivo `.env.example` não está presente neste snapshot; não dependa de copiá-lo.
+Crie `.env` na raiz do projeto (não versione esse arquivo). Configure os caminhos do banco/storage, usuário e senha iniciais do fabricante e a passphrase da chave privada. O exemplo para Windows está abaixo. O arquivo `.env.example` não está presente neste snapshot; não dependa de copiá-lo.
 
 Depois de criar `.env`, inicialize o schema com [bin/setup_db.php](bin/setup_db.php) e gere as chaves com [bin/gerar_chaves.php](bin/gerar_chaves.php). A tabela `usuarios` é provisionada pelo fluxo de conexão quando as variáveis administrativas estão definidas. Acesse `public/login.php` pela URL do VirtualHost.
-
-### Exemplo de `.env` (Linux/macOS)
-
-```env
-# Configuração de Banco de Dados (SQLite)
-TCC_DB_SQLITE_PATH=/tmp/tcc-storage/tcc.sqlite
-
-# Credenciais Administrativas
-TCC_ADMIN_USER=fabricante
-TCC_ADMIN_PASSWORD=troque-esta-senha
-
-# Segurança Criptográfica
-TCC_KEY_PASSPHRASE=troque-esta-passphrase
-
-# Armazenamento de Chaves RSA
-TCC_STORAGE_PATH=/tmp/tcc-storage
-```
 
 ### Exemplo de `.env` (Windows)
 
@@ -312,7 +167,7 @@ O schema atual contém:
 - `usuarios`: credenciais do fabricante armazenadas como hash de senha.
 - `validacoes`: estrutura para eventos de validação; a persistência dos eventos ainda não foi implementada.
 
-O SQLite cria o arquivo e diretório-pai quando necessário, mas o usuário do Apache precisa ter permissão de escrita no banco e no diretório de storage. Em Linux, mantenha chaves/storage fora do webroot e conceda ao usuário/grupo do Apache somente o acesso necessário. Em Windows, revise as ACLs NTFS de `C:\xampp\storage\tcc`.
+O SQLite cria o arquivo e o diretório-pai quando necessário. O Apache precisa ter permissão de leitura das chaves e de escrita no banco, nas sessões e no diretório de storage. No Windows, revise as ACLs NTFS de `C:\xampp\storage\tcc`.
 
 ## Arquitetura e interfaces
 
@@ -344,8 +199,8 @@ Os arquivos de terceiros do frontend ficam versionados em `public/assets/vendor/
 - `public/assets/vendor/` contém os arquivos fixos do frontend usados pela interface, como Bootstrap, `html5-qrcode` e `qrcodejs`.
 - A pasta `vendor/` da raiz é diferente: ela é gerada pelo Composer para dependências PHP de desenvolvimento e continua ignorada pelo Git.
 - Se algum CSS ou JS não carregar no navegador, confirme que os arquivos existem em `public/assets/vendor/` e que a URL está sendo servida pelo VirtualHost correto (`http://tcc.local:8080/`).
-- O QR exportado é gerado em 1024 px e inclui uma margem branca externa (quiet zone) para leitura pela imagem. Windows e Linux usam o mesmo código JavaScript no navegador; baixe novamente PNGs antigos para receber a resolução e a margem atualizadas.
-- Para conferir os assets no Linux, use a URL e a porta configuradas no Apache (por exemplo, `curl -I http://tcc.local/assets/vendor/bootstrap/bootstrap.min.css`); a resposta esperada é `200 OK`. No XAMPP deste projeto, use `http://tcc.local:8080/`.
+- O QR exportado é gerado em 1024 px e inclui uma margem branca externa (quiet zone) para leitura pela imagem. Baixe novamente PNGs antigos para receber a resolução e a margem atualizadas.
+- Para conferir os assets no XAMPP, use `curl.exe -I http://tcc.local:8080/assets/vendor/bootstrap/bootstrap.min.css`; a resposta esperada é `200 OK`.
 
 ## Segurança e limitações conhecidas
 
@@ -360,7 +215,7 @@ Os arquivos de terceiros do frontend ficam versionados em `public/assets/vendor/
 - A aplicação ainda tem mensagens dinâmicas inseridas com `innerHTML` e alguns erros operacionais são apresentados como falha de autenticidade; esses fluxos devem ser refinados.
 - Chaves privadas que já tenham sido publicadas em commits antigos devem ser consideradas comprometidas. Gerar chaves novas não remove segredos do histórico Git.
 
-Os arquivos Docker existem, mas a configuração atual do `docker-compose.yml` ajusta o `DocumentRoot` para `/var/www/html/tcc/public`, enquanto o volume monta o projeto em `/var/www/html`. Essa configuração não foi validada para a estrutura atual; use o procedimento Apache/XAMPP ou corrija o caminho do Docker antes de depender dele.
+Os arquivos Docker existem, mas não fazem parte do procedimento suportado neste README. Para Windows, use o Apache do XAMPP e os caminhos documentados acima.
 
 ## Testes e ferramentas de desenvolvimento
 
@@ -368,42 +223,16 @@ Os testes ficam em `tests/` e cobrem atualmente criação de assinatura e rejei�
 
 Para instalar PHPUnit, PHPStan e PHP-CS-Fixer no ambiente de desenvolvimento:
 
-```bash
+```powershell
 composer install
-vendor/bin/phpunit
-vendor/bin/phpstan analyse
-vendor/bin/php-cs-fixer fix --dry-run --diff
+vendor\\bin\\phpunit.bat
+vendor\\bin\\phpstan.bat analyse
+vendor\\bin\\php-cs-fixer.bat fix --dry-run --diff
 ```
 
-No Windows PowerShell, os equivalentes são `composer install`, `vendor\\bin\\phpunit.bat`, `vendor\\bin\\phpstan.bat analyse` e `vendor\\bin\\php-cs-fixer.bat fix --dry-run --diff`. Composer é necessário para essas ferramentas, não para o runtime da aplicação.
+No Windows PowerShell, execute os comandos acima na raiz do projeto. Composer é necessário para essas ferramentas, não para o runtime da aplicação.
 
 ## Comandos úteis
-
-### Linux/macOS
-
-Gerar chaves:
-
-```bash
-php bin/gerar_chaves.php
-```
-
-Inicializar o banco SQLite:
-
-```bash
-php bin/setup_db.php
-```
-
-Regenerar chaves (força):
-
-```bash
-php bin/gerar_chaves.php --force
-```
-
-Demonstrar a correção da condição de corrida (P03):
-
-```bash
-TCC_STORAGE_PATH=/tmp/tcc-p03-demo php bin/demonstrar_p03.php
-```
 
 ### Windows (PowerShell)
 

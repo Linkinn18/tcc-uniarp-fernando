@@ -126,7 +126,14 @@ function tcc_verify_identifier_signature_rsa(string $identifier, string $signatu
             return false;
         }
 
-        $signature = base64_decode($signatureBase64, true);
+        $normalizedSignature = function_exists('tcc_normalize_signature_base64')
+            ? tcc_normalize_signature_base64($signatureBase64)
+            : $signatureBase64;
+        if ($normalizedSignature === null) {
+            return false;
+        }
+
+        $signature = base64_decode($normalizedSignature, true);
         if ($signature === false) {
             return false;
         }

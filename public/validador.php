@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../crypto.php';
+require_once __DIR__ . '/../auth.php';
+
+$isAuthenticated = tcc_is_authenticated();
 
 $publicKeyStr = '';
 $keyError = '';
@@ -19,23 +22,49 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validador de Medicamentos - TCC</title>
     <link href="assets/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <script src="assets/vendor/html5-qrcode/html5-qrcode.min.js" type="text/javascript"></script>
     <style>
-        body { background-color: #f0f2f5; }
         .result-box { display: none; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px;}
         .result-box.success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
         .result-box.danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
     </style>
 </head>
-<body>
-    <nav class="navbar navbar-dark bg-success shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">⬅ Voltar</a>
-            <span class="navbar-text text-white fw-bold">Validador Descentralizado</span>
+<body class="app-page">
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <div class="brand-mark">
+            <div class="brand-symbol">T</div>
+            <div>
+                <p class="brand-title">TCC Medicamentos</p>
+                <p class="brand-subtitle">Autenticidade e unicidade</p>
+            </div>
         </div>
-    </nav>
+        <p class="sidebar-label">Módulos</p>
+        <nav class="sidebar-nav" aria-label="Navegação principal">
+            <a class="sidebar-link" href="index.php"><span class="sidebar-icon">⌂</span><span>Início</span></a>
+            <a class="sidebar-link" href="fabricante.php"><span class="sidebar-icon">＋</span><span>Cadastrar Lote</span></a>
+            <a class="sidebar-link" href="index.php?tab=search"><span class="sidebar-icon">⌕</span><span>Pesquisar</span></a>
+            <a class="sidebar-link active" href="validador.php"><span class="sidebar-icon">✓</span><span>Validar Lotes</span></a>
+            <?php if ($isAuthenticated): ?>
+                <a class="sidebar-link" href="logout.php"><span class="sidebar-icon">↪</span><span>Sair</span></a>
+            <?php else: ?>
+                <a class="sidebar-link" href="login.php"><span class="sidebar-icon">→</span><span>Login</span></a>
+            <?php endif; ?>
+        </nav>
+        <div class="sidebar-footer">Valide um QR Code a partir de uma imagem PNG ou JPG.</div>
+    </aside>
 
-    <div class="container mt-4">
+    <main class="app-main">
+        <header class="page-header">
+            <div>
+                <p class="eyebrow">Verificação</p>
+                <h1 class="page-title">Validar lotes</h1>
+                <p class="page-intro">Envie a imagem do QR Code para verificar a assinatura e a unicidade do lote.</p>
+            </div>
+        </header>
+
+    <div class="module-panel">
         <div class="row justify-content-center">
             <div class="col-md-6 col-lg-5">
                 <div class="text-center mb-4">
@@ -70,6 +99,8 @@ try {
             </div>
         </div>
     </div>
+    </main>
+</div>
 
     <div id="qr-file-reader" style="display:none;"></div>
 
@@ -97,6 +128,7 @@ try {
         }
 
         function base64ToArrayBuffer(base64) {
+            base64 = normalizeQrSignature(base64);
             const binary = atob(base64);
             const bytes = new Uint8Array(binary.length);
 
@@ -105,6 +137,17 @@ try {
             }
 
             return bytes.buffer;
+        }
+
+        function normalizeQrSignature(signature) {
+            const trimmed = String(signature || '').trim();
+            if (!trimmed) {
+                throw new Error('Assinatura ausente no QR Code.');
+            }
+
+            const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+            const padding = normalized.length % 4;
+            return padding === 0 ? normalized : normalized + '='.repeat(4 - padding);
         }
 
         async function getPublicKey() {
@@ -180,6 +223,7 @@ try {
             let data;
             try {
                 data = parseQrPayload(rawText);
+                data.sig = normalizeQrSignature(data.sig);
             } catch (error) {
                 console.error('Erro ao interpretar payload do QR:', error, 'Texto:', rawText);
                 throw error;

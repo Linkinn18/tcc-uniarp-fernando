@@ -1,6 +1,10 @@
 (function () {
     'use strict';
 
+    function signatureToQrValue(signature) {
+        return String(signature || '').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
     function buildPayload(data) {
         if (!data || !data.id || !data.sig) {
             throw new Error('Dados insuficientes para gerar o QR Code.');
@@ -8,7 +12,7 @@
 
         const params = new URLSearchParams();
         params.set('i', data.id);
-        params.set('s', data.sig);
+        params.set('s', signatureToQrValue(data.sig));
         return params.toString();
     }
 
@@ -16,7 +20,7 @@
         if (!element) return null;
         element.innerHTML = '';
         const payloadText = options.text || buildPayload(data);
-        return new QRCode(element, Object.assign({ text: payloadText, width: 256, height: 256, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }, options));
+        return new QRCode(element, Object.assign({ text: payloadText, width: 256, height: 256, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H }, options));
     }
 
     function downloadQr(element, data, filename = 'tcc-qr.png', size = 1024) {
@@ -75,7 +79,7 @@
             };
 
             requestAnimationFrame(() => {
-                const source = tmp.querySelector('canvas') || tmp.querySelector('img');
+                const source = tmp.querySelector('img') || tmp.querySelector('canvas');
                 if (!source) {
                     rejectExport(new Error('Não foi possível gerar imagem do QR.'));
                     return;
@@ -92,5 +96,5 @@
         });
     }
 
-    window.tccQr = { buildPayload, renderQr, downloadQr };
+    window.tccQr = { buildPayload, renderQr, downloadQr, signatureToQrValue };
 })();

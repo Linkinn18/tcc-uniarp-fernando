@@ -14,6 +14,41 @@ if (!function_exists('tcc_generate_uuid_v4')) {
     }
 }
 
+if (!function_exists('tcc_normalize_signature_base64')) {
+    function tcc_normalize_signature_base64(string $signature): ?string
+    {
+        $signature = trim($signature);
+        if ($signature === '') {
+            return null;
+        }
+
+        $signature = strtr($signature, '-_', '+/');
+        $padding = strlen($signature) % 4;
+        if ($padding !== 0) {
+            $signature .= str_repeat('=', 4 - $padding);
+        }
+
+        $decoded = base64_decode($signature, true);
+        if ($decoded === false) {
+            return null;
+        }
+
+        return base64_encode($decoded);
+    }
+}
+
+if (!function_exists('tcc_signature_to_qr_value')) {
+    function tcc_signature_to_qr_value(string $signature): string
+    {
+        $normalized = tcc_normalize_signature_base64($signature);
+        if ($normalized === null) {
+            return $signature;
+        }
+
+        return rtrim(strtr($normalized, '+/', '-_'), '=');
+    }
+}
+
 if (!function_exists('tcc_sign_identifier')) {
     function tcc_sign_identifier(string $id): string
     {
@@ -37,7 +72,12 @@ if (!function_exists('tcc_verify_identifier_signature')) {
         }
 
         $expected = tcc_sign_identifier($id);
-        return hash_equals($expected, $sig);
+        $normalized = tcc_normalize_signature_base64($sig);
+        if ($normalized === null) {
+            return false;
+        }
+
+        return hash_equals($expected, $normalized);
     }
 }
 
