@@ -174,7 +174,7 @@ $isAuthenticated = tcc_is_authenticated();
 <script src="assets/vendor/qrcodejs/qrcode.min.js"></script>
 <script src="assets/js/dom.js"></script>
 <script src="assets/js/api.js"></script>
-<script src="assets/js/qr.js"></script>
+<script src="assets/js/qr.js?v=<?= urlencode((string) filemtime(__DIR__ . '/assets/js/qr.js')) ?>"></script>
 <script>
 (function () {
     const homeTab = document.getElementById('tab-home');

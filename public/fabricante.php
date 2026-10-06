@@ -116,7 +116,7 @@ $username = tcc_authenticated_username();
     <?php if ($keysExist): ?>
     <script src="assets/js/dom.js"></script>
     <script src="assets/js/api.js"></script>
-    <script src="assets/js/qr.js"></script>
+    <script src="assets/js/qr.js?v=<?= urlencode((string) filemtime(__DIR__ . '/assets/js/qr.js')) ?>"></script>
     <script>
         (function () {
             document.getElementById('medicamentoForm').addEventListener('submit', async (e) => {
