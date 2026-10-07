@@ -3,9 +3,26 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../autoload.php';
+
+use App\Repository\MedicamentoRepository;
 
 $keys_exist = tcc_keys_exist();
 $isAuthenticated = tcc_is_authenticated();
+$dashboardSummary = [
+    'totals' => ['total' => 0, 'validated' => 0, 'not_validated' => 0],
+    'by_manufacturer' => [],
+];
+$dashboardError = '';
+
+try {
+    $repo = new MedicamentoRepository($pdo);
+    $dashboardSummary = $repo->getDashboardSummary();
+} catch (Throwable $exception) {
+    tcc_log_exception($exception, 'dashboard_summary');
+    $dashboardError = 'Os indicadores não puderam ser carregados agora.';
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -48,6 +65,13 @@ $isAuthenticated = tcc_is_authenticated();
         .welcome-panel { min-height: 330px; display: grid; align-content: center; }
         .welcome-panel h2 { max-width: 620px; margin-bottom: 12px; font-size: clamp(1.5rem, 3vw, 2.2rem); }
         .welcome-panel p { max-width: 650px; color: var(--muted); }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+        .metric-card { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fbfc 100%); }
+        .metric-label { margin: 0 0 10px; color: var(--muted); font-size: .82rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+        .metric-value { margin: 0; font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 700; line-height: 1; }
+        .metric-help { margin: 8px 0 0; color: var(--muted); font-size: .92rem; }
+        .summary-table { margin-top: 26px; }
+        .summary-table table { margin-bottom: 0; }
         .status-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 26px; padding: 14px 16px; border-left: 3px solid #d59b27; background: #fff8e7; color: #6c511a; }
         .search-panel { display: none; }
         .search-panel.is-visible { display: block; }
@@ -64,6 +88,7 @@ $isAuthenticated = tcc_is_authenticated();
             .sidebar-footer { display: none; }
             .app-main { padding: 26px 16px; }
             .page-header { display: block; }
+            .metrics-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -116,6 +141,59 @@ $isAuthenticated = tcc_is_authenticated();
 
         <section id="home-panel" class="content-panel welcome-panel" aria-labelledby="home-title">
             <p class="eyebrow">Visão geral</p>
+            <h2 id="home-title">Indicadores dos medicamentos cadastrados</h2>
+            <p>Resumo dos cadastros e validações registrados no sistema, incluindo a separação por login de fabricante.</p>
+
+            <?php if ($dashboardError !== ''): ?>
+                <div class="alert alert-warning mt-3 mb-0"><?= htmlspecialchars($dashboardError, ENT_QUOTES, 'UTF-8') ?></div>
+            <?php else: ?>
+                <div class="metrics-grid" aria-label="Indicadores principais">
+                    <article class="metric-card">
+                        <p class="metric-label">Total cadastrados</p>
+                        <p class="metric-value"><?= (int) $dashboardSummary['totals']['total'] ?></p>
+                        <p class="metric-help">Quantidade total de medicamentos/unidades registradas.</p>
+                    </article>
+                    <article class="metric-card">
+                        <p class="metric-label">Validados</p>
+                        <p class="metric-value"><?= (int) $dashboardSummary['totals']['validated'] ?></p>
+                        <p class="metric-help">Medicamentos já marcados como validados.</p>
+                    </article>
+                    <article class="metric-card">
+                        <p class="metric-label">Não validados</p>
+                        <p class="metric-value"><?= (int) $dashboardSummary['totals']['not_validated'] ?></p>
+                        <p class="metric-help">Medicamentos ainda não validados no fluxo de conferência.</p>
+                    </article>
+                </div>
+
+                <div class="summary-table table-wrap" aria-label="Indicadores por fabricante">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Login do fabricante</th>
+                                <th>Cadastrados</th>
+                                <th>Validados</th>
+                                <th>Não validados</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($dashboardSummary['by_manufacturer'] === []): ?>
+                                <tr>
+                                    <td colspan="4" class="text-muted">Nenhum medicamento cadastrado até o momento.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($dashboardSummary['by_manufacturer'] as $manufacturerSummary): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars((string) $manufacturerSummary['fabricante_username'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $manufacturerSummary['total'] ?></td>
+                                        <td><?= (int) $manufacturerSummary['validated'] ?></td>
+                                        <td><?= (int) $manufacturerSummary['not_validated'] ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         </section>
 
         <section id="search-panel" class="content-panel search-panel" aria-labelledby="search-title">
