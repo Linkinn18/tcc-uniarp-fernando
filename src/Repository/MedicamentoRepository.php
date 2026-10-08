@@ -32,10 +32,15 @@ class MedicamentoRepository
         return $row ?: null;
     }
 
-    public function search(?string $nome, ?string $lote, ?string $id): array
+    public function search(?string $nome, ?string $lote, ?string $id, ?string $fabricanteUsername = null): array
     {
         $query = sprintf('SELECT id, nome, lote, %s AS criado_em, assinatura, status, data_validacao FROM medicamentos WHERE 1=1', $this->dateColumn);
         $params = [];
+
+        if ($fabricanteUsername !== null && $fabricanteUsername !== '') {
+            $query .= ' AND fabricante_username = ?';
+            $params[] = $fabricanteUsername;
+        }
 
         if ($nome !== null && $nome !== '') {
             $query .= " AND nome LIKE ?";
@@ -65,13 +70,24 @@ class MedicamentoRepository
         return $rows;
     }
 
-    public function getDashboardSummary(): array
+    public function getDashboardSummary(?string $fabricanteUsername = null): array
     {
-        $totals = $this->pdo->query('SELECT COUNT(*) AS total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) AS validated, SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS not_validated FROM medicamentos')
-            ?->fetch(PDO::FETCH_ASSOC) ?: [];
+        $whereClause = '';
+        $params = [];
 
-        $byManufacturer = $this->pdo->query("SELECT COALESCE(NULLIF(fabricante_username, ''), 'Não informado') AS fabricante_username, COUNT(*) AS total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) AS validated, SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS not_validated FROM medicamentos GROUP BY COALESCE(NULLIF(fabricante_username, ''), 'Não informado') ORDER BY total DESC, fabricante_username ASC")
-            ?->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($fabricanteUsername !== null && $fabricanteUsername !== '') {
+            $whereClause = ' WHERE fabricante_username = ?';
+            $params[] = $fabricanteUsername;
+        }
+
+        $totalsStatement = $this->pdo->prepare('SELECT COUNT(*) AS total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) AS validated, SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS not_validated FROM medicamentos' . $whereClause);
+        $totalsStatement->execute($params);
+        $totals = $totalsStatement->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $byManufacturerQuery = "SELECT COALESCE(NULLIF(fabricante_username, ''), 'Não informado') AS fabricante_username, COUNT(*) AS total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) AS validated, SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS not_validated FROM medicamentos" . $whereClause . " GROUP BY COALESCE(NULLIF(fabricante_username, ''), 'Não informado') ORDER BY total DESC, fabricante_username ASC";
+        $byManufacturerStatement = $this->pdo->prepare($byManufacturerQuery);
+        $byManufacturerStatement->execute($params);
+        $byManufacturer = $byManufacturerStatement->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return [
             'totals' => [

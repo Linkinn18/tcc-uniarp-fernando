@@ -10,6 +10,7 @@ use App\Repository\MedicamentoRepository;
 
 $keys_exist = tcc_keys_exist();
 $isAuthenticated = tcc_is_authenticated();
+$username = tcc_authenticated_username();
 $dashboardSummary = [
     'totals' => ['total' => 0, 'validated' => 0, 'not_validated' => 0],
     'by_manufacturer' => [],
@@ -18,7 +19,7 @@ $dashboardError = '';
 
 try {
     $repo = new MedicamentoRepository($pdo);
-    $dashboardSummary = $repo->getDashboardSummary();
+    $dashboardSummary = $repo->getDashboardSummary($isAuthenticated ? $username : null);
 } catch (Throwable $exception) {
     tcc_log_exception($exception, 'dashboard_summary');
     $dashboardError = 'Os indicadores não puderam ser carregados agora.';
@@ -55,7 +56,12 @@ try {
         .sidebar-link { display: flex; align-items: center; gap: 11px; width: 100%; padding: 12px; border: 0; border-radius: 8px; color: #dce5ea; background: transparent; text-align: left; text-decoration: none; }
         .sidebar-link:hover, .sidebar-link.active { color: #fff; background: #263943; }
         .sidebar-icon { width: 20px; color: #8ed6ca; text-align: center; }
-        .sidebar-footer { margin: 42px 10px 0; padding-top: 18px; border-top: 1px solid #30414b; color: #aebbc4; font-size: .78rem; line-height: 1.5; }
+        .sidebar-footer { margin: 42px 10px 0 0; }
+        .sidebar-user-card { padding: 16px; border: 1px solid #30414b; border-radius: 12px; background: linear-gradient(180deg, rgba(142, 214, 202, .18) 0%, rgba(22, 35, 45, .18) 100%); color: #dce5ea; }
+        .sidebar-user-label { margin: 0 0 6px; color: #8ed6ca; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .sidebar-user-name { margin: 0; font-size: 1rem; font-weight: 700; word-break: break-word; }
+        .sidebar-user-help { margin: 8px 0 0; color: #aebbc4; font-size: .8rem; line-height: 1.5; }
+        .sidebar-user-card .link-light { color: #fff !important; font-weight: 600; }
         .app-main { flex: 1; min-width: 0; padding: 34px clamp(20px, 5vw, 64px); }
         .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
         .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: .76rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
@@ -115,9 +121,19 @@ try {
         </nav>
         <div class="sidebar-footer">
             <?php if ($isAuthenticated): ?>
-                Fabricante autenticado.
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-label">Fabricante conectado</p>
+                    <p class="sidebar-user-name"><?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?></p>
+                    <p class="sidebar-user-help">Os indicadores e a pesquisa exibem somente os lotes deste fabricante.</p>
+                    <a class="link-light text-decoration-none" href="logout.php">Sair</a>
+                </div>
             <?php else: ?>
-                A emissão de lotes requer autenticação.
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-label">Acesso</p>
+                    <p class="sidebar-user-name">Visitante</p>
+                    <p class="sidebar-user-help">Faça login para emitir e pesquisar lotes do seu fabricante.</p>
+                    <a class="link-light text-decoration-none" href="login.php">Ir para login</a>
+                </div>
             <?php endif; ?>
         </div>
     </aside>
@@ -140,9 +156,7 @@ try {
         <?php endif; ?>
 
         <section id="home-panel" class="content-panel welcome-panel" aria-labelledby="home-title">
-            <p class="eyebrow">Visão geral</p>
-            <h2 id="home-title">Indicadores dos medicamentos cadastrados</h2>
-            <p>Resumo dos cadastros e validações registrados no sistema, incluindo a separação por login de fabricante.</p>
+            <h2 id="home-title"><?= $isAuthenticated ? 'Indicadores dos seus medicamentos cadastrados' : 'Indicadores dos medicamentos cadastrados' ?></h2>
 
             <?php if ($dashboardError !== ''): ?>
                 <div class="alert alert-warning mt-3 mb-0"><?= htmlspecialchars($dashboardError, ENT_QUOTES, 'UTF-8') ?></div>
@@ -151,47 +165,15 @@ try {
                     <article class="metric-card">
                         <p class="metric-label">Total cadastrados</p>
                         <p class="metric-value"><?= (int) $dashboardSummary['totals']['total'] ?></p>
-                        <p class="metric-help">Quantidade total de medicamentos/unidades registradas.</p>
                     </article>
                     <article class="metric-card">
                         <p class="metric-label">Validados</p>
                         <p class="metric-value"><?= (int) $dashboardSummary['totals']['validated'] ?></p>
-                        <p class="metric-help">Medicamentos já marcados como validados.</p>
                     </article>
                     <article class="metric-card">
                         <p class="metric-label">Não validados</p>
                         <p class="metric-value"><?= (int) $dashboardSummary['totals']['not_validated'] ?></p>
-                        <p class="metric-help">Medicamentos ainda não validados no fluxo de conferência.</p>
                     </article>
-                </div>
-
-                <div class="summary-table table-wrap" aria-label="Indicadores por fabricante">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Login do fabricante</th>
-                                <th>Cadastrados</th>
-                                <th>Validados</th>
-                                <th>Não validados</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if ($dashboardSummary['by_manufacturer'] === []): ?>
-                                <tr>
-                                    <td colspan="4" class="text-muted">Nenhum medicamento cadastrado até o momento.</td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($dashboardSummary['by_manufacturer'] as $manufacturerSummary): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars((string) $manufacturerSummary['fabricante_username'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= (int) $manufacturerSummary['total'] ?></td>
-                                        <td><?= (int) $manufacturerSummary['validated'] ?></td>
-                                        <td><?= (int) $manufacturerSummary['not_validated'] ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
                 </div>
             <?php endif; ?>
         </section>
@@ -200,7 +182,7 @@ try {
             <div class="search-heading">
                 <p class="eyebrow">Consulta</p>
                 <h2 id="search-title">Pesquisar lotes gerados</h2>
-                <p>Busque por nome do medicamento e/ou número do lote. A pesquisa exige autenticação.</p>
+                <p><?= $isAuthenticated ? 'Busque por nome do medicamento e/ou número do lote. A pesquisa lista apenas os registros do fabricante autenticado.' : 'Busque por nome do medicamento e/ou número do lote. A pesquisa exige autenticação.' ?></p>
             </div>
             <form id="searchForm" class="row g-2 align-items-end">
                 <div class="col-md-5">

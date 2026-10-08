@@ -10,6 +10,56 @@ function tcc_assert_openssl(): void
     }
 }
 
+function tcc_open_ssl_error_messages(): string
+{
+    $messages = [];
+
+    while (($error = openssl_error_string()) !== false) {
+        $messages[] = $error;
+    }
+
+    return implode(' | ', array_unique($messages));
+}
+
+function tcc_openssl_config_path(): ?string
+{
+    $configuredPath = getenv('OPENSSL_CONF');
+    if (is_string($configuredPath) && $configuredPath !== '' && is_file($configuredPath)) {
+        return $configuredPath;
+    }
+
+    $phpDir = dirname((string) PHP_BINARY);
+    $candidates = [
+        $phpDir . '/extras/ssl/openssl.cnf',
+        dirname($phpDir) . '/apache/bin/openssl.cnf',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return null;
+}
+
+function tcc_openssl_keygen_config(): array
+{
+    $config = [
+        'digest_alg' => 'sha256',
+        'private_key_bits' => 2048,
+        'private_key_type' => OPENSSL_KEYTYPE_RSA,
+    ];
+
+    $configPath = tcc_openssl_config_path();
+    if ($configPath !== null) {
+        $config['config'] = $configPath;
+        putenv('OPENSSL_CONF=' . $configPath);
+    }
+
+    return $config;
+}
+
 function tcc_private_key_passphrase(): string
 {
     $passphrase = tcc_env('TCC_KEY_PASSPHRASE');
@@ -24,25 +74,42 @@ function tcc_generate_key_pair(string $passphrase): array
 {
     tcc_assert_openssl();
 
-    $config = [
-        'digest_alg' => 'sha256',
-        'private_key_bits' => 2048,
-        'private_key_type' => OPENSSL_KEYTYPE_RSA,
-    ];
+    $config = tcc_openssl_keygen_config();
 
     $keyResource = openssl_pkey_new($config);
     if ($keyResource === false) {
-        throw new RuntimeException('Falha ao gerar o par de chaves RSA.');
+        $details = tcc_open_ssl_error_messages();
+        $message = 'Falha ao gerar o par de chaves RSA.';
+
+        if ($details !== '') {
+            $message .= ' OpenSSL: ' . $details;
+        }
+
+        throw new RuntimeException($message);
     }
 
     $privateKey = '';
     if (!openssl_pkey_export($keyResource, $privateKey, $passphrase, $config)) {
-        throw new RuntimeException('Falha ao exportar a chave privada.');
+        $details = tcc_open_ssl_error_messages();
+        $message = 'Falha ao exportar a chave privada.';
+
+        if ($details !== '') {
+            $message .= ' OpenSSL: ' . $details;
+        }
+
+        throw new RuntimeException($message);
     }
 
     $details = openssl_pkey_get_details($keyResource);
     if ($details === false || empty($details['key'])) {
-        throw new RuntimeException('Falha ao obter a chave pública.');
+        $opensslDetails = tcc_open_ssl_error_messages();
+        $message = 'Falha ao obter a chave pública.';
+
+        if ($opensslDetails !== '') {
+            $message .= ' OpenSSL: ' . $opensslDetails;
+        }
+
+        throw new RuntimeException($message);
     }
 
     return [
@@ -86,6 +153,23 @@ function tcc_get_public_key(): string
     }
 
     return $publicKey;
+}
+
+function tcc_public_key_fingerprint(?string $publicKeyPem = null): string
+{
+    $publicKeyPem ??= tcc_get_public_key();
+
+    $normalized = preg_replace('/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s+/', '', $publicKeyPem);
+    if (!is_string($normalized) || $normalized === '') {
+        throw new RuntimeException('Não foi possível normalizar a chave pública para gerar o fingerprint.');
+    }
+
+    $der = base64_decode($normalized, true);
+    if ($der === false) {
+        throw new RuntimeException('Não foi possível decodificar a chave pública para gerar o fingerprint.');
+    }
+
+    return implode(':', str_split(hash('sha256', $der), 2));
 }
 
 function tcc_sign_identifier_rsa(string $identifier): string
