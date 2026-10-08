@@ -3,9 +3,27 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../autoload.php';
+
+use App\Repository\MedicamentoRepository;
 
 $keys_exist = tcc_keys_exist();
 $isAuthenticated = tcc_is_authenticated();
+$username = tcc_authenticated_username();
+$dashboardSummary = [
+    'totals' => ['total' => 0, 'validated' => 0, 'not_validated' => 0],
+    'by_manufacturer' => [],
+];
+$dashboardError = '';
+
+try {
+    $repo = new MedicamentoRepository($pdo);
+    $dashboardSummary = $repo->getDashboardSummary($isAuthenticated ? $username : null);
+} catch (Throwable $exception) {
+    tcc_log_exception($exception, 'dashboard_summary');
+    $dashboardError = 'Os indicadores não puderam ser carregados agora.';
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -38,7 +56,12 @@ $isAuthenticated = tcc_is_authenticated();
         .sidebar-link { display: flex; align-items: center; gap: 11px; width: 100%; padding: 12px; border: 0; border-radius: 8px; color: #dce5ea; background: transparent; text-align: left; text-decoration: none; }
         .sidebar-link:hover, .sidebar-link.active { color: #fff; background: #263943; }
         .sidebar-icon { width: 20px; color: #8ed6ca; text-align: center; }
-        .sidebar-footer { margin: 42px 10px 0; padding-top: 18px; border-top: 1px solid #30414b; color: #aebbc4; font-size: .78rem; line-height: 1.5; }
+        .sidebar-footer { margin: 42px 10px 0 0; }
+        .sidebar-user-card { padding: 16px; border: 1px solid #30414b; border-radius: 12px; background: linear-gradient(180deg, rgba(142, 214, 202, .18) 0%, rgba(22, 35, 45, .18) 100%); color: #dce5ea; }
+        .sidebar-user-label { margin: 0 0 6px; color: #8ed6ca; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .sidebar-user-name { margin: 0; font-size: 1rem; font-weight: 700; word-break: break-word; }
+        .sidebar-user-help { margin: 8px 0 0; color: #aebbc4; font-size: .8rem; line-height: 1.5; }
+        .sidebar-user-card .link-light { color: #fff !important; font-weight: 600; }
         .app-main { flex: 1; min-width: 0; padding: 34px clamp(20px, 5vw, 64px); }
         .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
         .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: .76rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
@@ -48,6 +71,13 @@ $isAuthenticated = tcc_is_authenticated();
         .welcome-panel { min-height: 330px; display: grid; align-content: center; }
         .welcome-panel h2 { max-width: 620px; margin-bottom: 12px; font-size: clamp(1.5rem, 3vw, 2.2rem); }
         .welcome-panel p { max-width: 650px; color: var(--muted); }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+        .metric-card { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fbfc 100%); }
+        .metric-label { margin: 0 0 10px; color: var(--muted); font-size: .82rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+        .metric-value { margin: 0; font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 700; line-height: 1; }
+        .metric-help { margin: 8px 0 0; color: var(--muted); font-size: .92rem; }
+        .summary-table { margin-top: 26px; }
+        .summary-table table { margin-bottom: 0; }
         .status-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 26px; padding: 14px 16px; border-left: 3px solid #d59b27; background: #fff8e7; color: #6c511a; }
         .search-panel { display: none; }
         .search-panel.is-visible { display: block; }
@@ -64,6 +94,7 @@ $isAuthenticated = tcc_is_authenticated();
             .sidebar-footer { display: none; }
             .app-main { padding: 26px 16px; }
             .page-header { display: block; }
+            .metrics-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -90,9 +121,19 @@ $isAuthenticated = tcc_is_authenticated();
         </nav>
         <div class="sidebar-footer">
             <?php if ($isAuthenticated): ?>
-                Fabricante autenticado.
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-label">Fabricante conectado</p>
+                    <p class="sidebar-user-name"><?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?></p>
+                    <p class="sidebar-user-help">Os indicadores e a pesquisa exibem somente os lotes deste fabricante.</p>
+                    <a class="link-light text-decoration-none" href="logout.php">Sair</a>
+                </div>
             <?php else: ?>
-                A emissão de lotes requer autenticação.
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-label">Acesso</p>
+                    <p class="sidebar-user-name">Visitante</p>
+                    <p class="sidebar-user-help">Faça login para emitir e pesquisar lotes do seu fabricante.</p>
+                    <a class="link-light text-decoration-none" href="login.php">Ir para login</a>
+                </div>
             <?php endif; ?>
         </div>
     </aside>
@@ -115,14 +156,33 @@ $isAuthenticated = tcc_is_authenticated();
         <?php endif; ?>
 
         <section id="home-panel" class="content-panel welcome-panel" aria-labelledby="home-title">
-            <p class="eyebrow">Visão geral</p>
+            <h2 id="home-title"><?= $isAuthenticated ? 'Indicadores dos seus medicamentos cadastrados' : 'Indicadores dos medicamentos cadastrados' ?></h2>
+
+            <?php if ($dashboardError !== ''): ?>
+                <div class="alert alert-warning mt-3 mb-0"><?= htmlspecialchars($dashboardError, ENT_QUOTES, 'UTF-8') ?></div>
+            <?php else: ?>
+                <div class="metrics-grid" aria-label="Indicadores principais">
+                    <article class="metric-card">
+                        <p class="metric-label">Total cadastrados</p>
+                        <p class="metric-value"><?= (int) $dashboardSummary['totals']['total'] ?></p>
+                    </article>
+                    <article class="metric-card">
+                        <p class="metric-label">Validados</p>
+                        <p class="metric-value"><?= (int) $dashboardSummary['totals']['validated'] ?></p>
+                    </article>
+                    <article class="metric-card">
+                        <p class="metric-label">Não validados</p>
+                        <p class="metric-value"><?= (int) $dashboardSummary['totals']['not_validated'] ?></p>
+                    </article>
+                </div>
+            <?php endif; ?>
         </section>
 
         <section id="search-panel" class="content-panel search-panel" aria-labelledby="search-title">
             <div class="search-heading">
                 <p class="eyebrow">Consulta</p>
                 <h2 id="search-title">Pesquisar lotes gerados</h2>
-                <p>Busque por nome do medicamento e/ou número do lote. A pesquisa exige autenticação.</p>
+                <p><?= $isAuthenticated ? 'Busque por nome do medicamento e/ou número do lote. A pesquisa lista apenas os registros do fabricante autenticado.' : 'Busque por nome do medicamento e/ou número do lote. A pesquisa exige autenticação.' ?></p>
             </div>
             <form id="searchForm" class="row g-2 align-items-end">
                 <div class="col-md-5">

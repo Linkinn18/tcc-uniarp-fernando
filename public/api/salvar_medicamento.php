@@ -23,6 +23,7 @@ if (empty($data['csrf_token']) || !tcc_verify_csrf_token($data['csrf_token'])) {
 
 $nome = trim((string) ($data['nome'] ?? ''));
 $lote = trim((string) ($data['lote'] ?? ''));
+$fabricanteUsername = tcc_authenticated_username();
 
 if ($nome === '' || $lote === '') {
     json_response(['success' => false, 'message' => 'Dados incompletos.'], 422);
@@ -31,7 +32,7 @@ if ($nome === '' || $lote === '') {
 try {
     $repo = new MedicamentoRepository($pdo);
     $service = new AssinaturaService($repo);
-    $result = $service->createAndStore($nome, $lote);
+    $result = $service->createAndStore($nome, $lote, $fabricanteUsername);
 
     json_response([
         'success' => true,

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../crypto.php';
 require_once __DIR__ . '/../auth.php';
 
 $isAuthenticated = tcc_is_authenticated();
+$username = tcc_authenticated_username();
 
 $publicKeyStr = '';
 $keyError = '';
@@ -28,6 +29,11 @@ try {
         .result-box { display: none; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px;}
         .result-box.success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
         .result-box.danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+        .sidebar-user-card { padding: 16px; border: 1px solid #30414b; border-radius: 12px; background: linear-gradient(180deg, rgba(142, 214, 202, .18) 0%, rgba(22, 35, 45, .18) 100%); color: #dce5ea; }
+        .sidebar-user-label { margin: 0 0 6px; color: #8ed6ca; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .sidebar-user-name { margin: 0; font-size: 1rem; font-weight: 700; word-break: break-word; }
+        .sidebar-user-help { margin: 8px 0 0; color: #aebbc4; font-size: .8rem; line-height: 1.5; }
+        .sidebar-user-card .link-light { color: #fff !important; font-weight: 600; }
     </style>
 </head>
 <body class="app-page">
@@ -52,7 +58,23 @@ try {
                 <a class="sidebar-link" href="login.php"><span class="sidebar-icon">→</span><span>Login</span></a>
             <?php endif; ?>
         </nav>
-        <div class="sidebar-footer">Valide um QR Code a partir de uma imagem PNG ou JPG.</div>
+        <div class="sidebar-footer">
+            <?php if ($isAuthenticated): ?>
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-label">Fabricante conectado</p>
+                    <p class="sidebar-user-name"><?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?></p>
+                    <p class="sidebar-user-help">Use esta área para validar lotes e conferir a autenticidade dos QR Codes.</p>
+                    <a class="link-light text-decoration-none" href="logout.php">Sair</a>
+                </div>
+            <?php else: ?>
+                <div class="sidebar-user-card">
+                    <p class="sidebar-user-label">Acesso</p>
+                    <p class="sidebar-user-name">Visitante</p>
+                    <p class="sidebar-user-help">Valide um QR Code a partir de uma imagem PNG ou JPG.</p>
+                    <a class="link-light text-decoration-none" href="login.php">Ir para login</a>
+                </div>
+            <?php endif; ?>
+        </div>
     </aside>
 
     <main class="app-main">

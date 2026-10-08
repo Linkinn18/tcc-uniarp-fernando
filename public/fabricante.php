@@ -23,6 +23,11 @@ $username = tcc_authenticated_username();
     <script src="assets/vendor/qrcodejs/qrcode.min.js"></script>
     <style>
         .qr-container { display: flex; justify-content: center; align-items: center; padding: 20px; background: white; border-radius: 10px; margin-top: 20px;}
+        .sidebar-user-card { padding: 16px; border: 1px solid #30414b; border-radius: 12px; background: linear-gradient(180deg, rgba(142, 214, 202, .18) 0%, rgba(22, 35, 45, .18) 100%); color: #dce5ea; }
+        .sidebar-user-label { margin: 0 0 6px; color: #8ed6ca; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .sidebar-user-name { margin: 0; font-size: 1rem; font-weight: 700; word-break: break-word; }
+        .sidebar-user-help { margin: 8px 0 0; color: #aebbc4; font-size: .8rem; line-height: 1.5; }
+        .sidebar-user-card .link-light { color: #fff !important; font-weight: 600; }
     </style>
 </head>
 <body class="app-page">
@@ -44,8 +49,12 @@ $username = tcc_authenticated_username();
             <a class="sidebar-link" href="logout.php"><span class="sidebar-icon">↪</span><span>Sair</span></a>
         </nav>
         <div class="sidebar-footer">
-            Usuário: <?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?><br>
-            <a class="link-light" href="logout.php">Sair</a>
+            <div class="sidebar-user-card">
+                <p class="sidebar-user-label">Fabricante conectado</p>
+                <p class="sidebar-user-name"><?= htmlspecialchars((string) $username, ENT_QUOTES, 'UTF-8') ?></p>
+                <p class="sidebar-user-help">Novos lotes emitidos nesta área serão vinculados apenas a este fabricante.</p>
+                <a class="link-light text-decoration-none" href="logout.php">Sair</a>
+            </div>
         </div>
     </aside>
 
