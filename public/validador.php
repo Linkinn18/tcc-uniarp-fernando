@@ -261,7 +261,7 @@ try {
                 );
 
                 if (!valid) {
-                    throw new Error('Assinatura inválida. O medicamento não foi gerado por este sistema.');
+                    throw new Error('Assinatura inválida para a chave pública atual. O código pode ter sido adulterado ou emitido por outro fabricante/chave.');
                 }
             }
 

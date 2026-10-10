@@ -22,7 +22,7 @@ final class ValidacaoService
     {
         if (!\tcc_verify_identifier_signature($id, $signature)) {
             \tcc_audit_validation($this->pdo, $id, 'assinatura_invalida');
-            return ['success' => false, 'status' => 403, 'message' => 'Falsificação detectada: Assinatura inválida.'];
+            return ['success' => false, 'status' => 403, 'message' => 'Assinatura inválida para a chave pública atual. O código pode ter sido adulterado ou emitido por outro fabricante/chave.'];
         }
 
         $row = $this->repo->find($id);
